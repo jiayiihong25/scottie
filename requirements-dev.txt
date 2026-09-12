@@ -1,0 +1,7 @@
+# Dev/test only — not needed to run the pipeline itself.
+-r requirements.txt
+
+pytest
+
+# Used only to generate tests/fixtures/*.pdf; not a pipeline dependency.
+reportlab
