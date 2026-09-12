@@ -1,24 +1,55 @@
 # Project context
 
 Personal exam-prep automation. Not a product — single user, single owner.
+Full design rationale and decision history: `docs/orchestration-design.md`
+— read it before touching `graph/`, `pacing/`, or `generate/`.
 
-## Architecture
+## Architecture (current target — see docs/orchestration-design.md for how we got here)
 
-Content store (ingest/) -> Pacing engine (pacing/) -> Daily routine (generate/)
--> Morning packet + Anki deck (output/), with performance feeding back into
-the pacing engine.
+Google Drive (course material) -> ingest/ (deterministic, built) ->
+LangGraph pipeline (graph/, pacing + generation as agents, model calls
+routed through a self-hosted OmniRoute gateway) -> two outputs:
+a private Claude Artifact (the morning packet: reading list + concept
+questions) and an .apkg Anki deck pushed as a file. Triggered daily by
+a cron-scheduled Claude Code Routine.
 
 - `ingest/`: turns PDFs, slides, and notes into a normalized index. Each
   chunk needs: course, topic/unit, source file, page or slide range, raw
   text, and a content-type tag (conceptual vs. memorization-based).
-- `pacing/`: given exam dates and the content index, decides what's new
-  today vs. what's due for spaced review. Keep this deterministic and
-  inspectable — it's the part most worth getting right.
-- `generate/`: for today's assigned chunks, produces (a) a reading list
-  with page ranges, (b) concept-check questions, (c) Anki cards for
-  memorization-tagged content, via `genanki`.
-- `output/`: the generated artifacts. Gitignored — this is the user's
-  actual coursework content, not something to version.
+  **Built and tested — deterministic, no LLM calls.** Stays that way;
+  it gets wrapped as a single node in `graph/`, not rebuilt as an agent.
+- `graph/` (not yet built): LangGraph pipeline replacing the originally
+  planned plain-function `pacing/` and `generate/`.
+  - `pacing_agent`: given exam dates + the content index, decides what's
+    new today vs. due for spaced review. Keep this deterministic and
+    inspectable where possible — it's the part most worth getting right.
+  - `content_router`: conditional edge, routes each assigned chunk to
+    `concept_agent` or `card_agent` by its existing `content_type` tag.
+    A content type with nothing due today means that agent just doesn't
+    fire — normal, not a bug. Every state field either agent might not
+    populate must default to empty; downstream nodes must treat "empty"
+    as a normal case.
+  - `concept_agent` / `card_agent`: produce concept-check questions and
+    Anki card drafts respectively, via model calls routed through
+    OmniRoute (never call a model client directly — see
+    `call_model()` in the design doc).
+  - `packet_writer`: deterministic, assembles the reading list +
+    questions into the Artifact page and the cards into an `.apkg` via
+    `genanki`.
+- **OmniRoute**: self-hosted AI gateway (Railway, ~$5/mo — the one
+  recurring cost of this project), OpenAI-compatible endpoint. Every
+  model call goes through it via aliases (`config/models.yaml`), free-tier
+  providers first, so steady-state model cost is $0. Credentials
+  (`OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`) come from `.env`
+  (or the Routine's environment env vars), never hardcoded/committed.
+- **Course material**: lives in Google Drive (connected as an MCP tool),
+  not just local disk — a Routine's container starts empty each
+  morning, so ingest needs to pull from Drive first.
+- **Output delivery**: the morning packet is a private Claude Artifact,
+  republished to the same URL daily (signed in via claude.ai already —
+  deliberately not a standalone web app with its own login/hosting,
+  ruled out for cost/complexity). The `.apkg` is pushed as a file
+  alongside it, since a web page can't hold an Anki deck.
 
 ## Conventions
 
@@ -26,8 +57,13 @@ the pacing engine.
   material and generated study content, never commit them.
 - Keep the pacing algorithm simple and debuggable before adding
   sophistication (e.g. start with a fixed first-pass + N-review-pass
-  cadence before anything adaptive).
-- This eventually runs unattended as a Claude Code Routine on a daily
-  cron schedule — write generation logic assuming no human is present
-  to fix a bad run, so fail loudly (clear error output) rather than
-  silently producing an empty or malformed morning packet.
+  cadence before anything adaptive). This applies to `pacing_agent` too
+  — don't reach for LLM judgment where a deterministic rule works.
+- This runs unattended as a Claude Code Routine on a daily cron
+  schedule — write generation logic assuming no human is present to fix
+  a bad run, so fail loudly (clear error output, `call_model` raises on
+  an unreachable OmniRoute) rather than silently producing an empty or
+  malformed morning packet.
+- Every agent node calls a single shared `call_model()` wrapper, never
+  a model client directly — that's what keeps OmniRoute swappable and
+  cost logging centralized.
