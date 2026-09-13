@@ -8,3 +8,6 @@ genanki
 # Config / misc
 pyyaml
 python-dotenv
+
+# OmniRoute (OpenAI-compatible HTTP gateway) calls
+requests
