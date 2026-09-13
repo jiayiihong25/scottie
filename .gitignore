@@ -1,0 +1,17 @@
+# Personal content — never commit
+data/
+output/
+*.apkg
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Env / secrets
+.env
+
+# OS
+.DS_Store

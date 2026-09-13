@@ -1,0 +1,10 @@
+# Content extraction
+pdfplumber
+python-pptx
+
+# Anki card generation
+genanki
+
+# Config / misc
+pyyaml
+python-dotenv
