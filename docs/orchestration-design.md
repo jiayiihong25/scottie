@@ -202,16 +202,25 @@ Everything below was an open question in the first draft of this doc;
 resolved in conversation and now the basis for implementation.
 
 - **Hosting**: OmniRoute deployed to Railway (Hobby plan, ~$5/month —
-  the one recurring cost of this whole project). Self-hosted, always-on,
-  reachable by a cloud Claude Code Routine.
+  the one recurring cost of this whole project), **with sleep-on-idle
+  (Serverless mode) enabled** so it scales to zero between the daily
+  Routine's requests instead of billing 24/7 uptime — keeps actual
+  usage well under the $5 included credit. Self-hosted, reachable by a
+  cloud Claude Code Routine. Trade-off: a cold-start delay on the first
+  request after idle, a non-issue for an unattended morning run.
+  Base URL is live: `https://omniroute-production-e33a.up.railway.app/api/v1`
+  — note this instance uses `/api/v1`, not the generic `/v1` path shown
+  in OmniRoute's own docs; verify against the dashboard if redeployed.
 - **Model cost**: OmniRoute configured with free-tier providers
   (Pollinations, OpenCode Free, Cloudflare AI, etc.) as the default
   aliases; a paid provider, if ever added, is fallback-only. Target
   steady-state model cost: $0/month.
 - **Auth**: `OMNIROUTE_BASE_URL` and `OMNIROUTE_API_KEY` come from
-  `.env` locally and from the Claude Code environment's own env vars
-  when running inside a Routine — never hardcoded, never committed
-  (see `.env.example` once added).
+  `.env` locally (see `.env.example`) and from the Claude Code
+  environment's own env vars when running inside a Routine — never
+  hardcoded, never committed. As of this writing the base URL is set;
+  the API key is still pending (dashboard login issue after a Railway
+  redeploy — see open items).
 - **Course material storage**: Google Drive (already connected as an
   MCP tool in this environment). `data/` stops being "whatever's on
   your laptop" and becomes "synced from a Drive folder" — the
@@ -278,9 +287,13 @@ Western mid-September) — update the file once real dates are posted;
 ## Remaining open items before implementation starts
 
 1. ~~Exact Drive folder structure~~ — done, see above.
-2. Your actual OmniRoute URL + API key, and which aliases you've set up
-   (once the Railway deploy is done).
+2. **OmniRoute — in progress.** Railway deploy is live, base URL known
+   (above), serverless mode on. Still pending: dashboard login (broken
+   after a redeploy that updated the password env var — should resolve
+   once it propagates), then generate the API key and set up at least
+   one free-tier provider + alias.
 3. Preferred send time for the daily Routine (needs a concrete
    hour/timezone to convert to a UTC cron expression).
-4. Real final exam dates, once Western's Registrar publishes them —
-   `courses.yaml` needs a manual update at that point.
+4. Real final exam dates — deliberately deferred; Western doesn't
+   publish these until partway through term. Revisit `courses.yaml`
+   when they're out, no urgency now.
