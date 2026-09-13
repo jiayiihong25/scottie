@@ -23,6 +23,11 @@ a cron-scheduled Claude Code Routine.
   - `pacing_agent`: given exam dates + the content index, decides what's
     new today vs. due for spaced review. Keep this deterministic and
     inspectable where possible — it's the part most worth getting right.
+    Reads `courses.yaml`'s `final_cumulative` field per course: `true`
+    keeps every chunk in review rotation until the final; `false` lets
+    pre-midterm chunks wind down after the midterm passes; `null`
+    (not stated in the syllabus) defaults to cumulative — safer to
+    over-review than let something go stale that's actually tested.
   - `content_router`: conditional edge, routes each assigned chunk to
     `concept_agent` or `card_agent` by its existing `content_type` tag.
     A content type with nothing due today means that agent just doesn't

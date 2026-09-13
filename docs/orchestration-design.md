@@ -235,12 +235,52 @@ resolved in conversation and now the basis for implementation.
   with its own login/server/database. The Artifact approach was chosen
   specifically to avoid that additional recurring cost and complexity.
 
+## Drive structure — live
+
+The Google Drive folder ("JiaYi Courses") is populated:
+
+```
+JiaYi Courses/
+├── courses.yaml          # exam dates + final_cumulative per course
+├── _syllabi_intake/      # drop zone for future syllabi (currently empty)
+├── PHILOSOP1230/         # syllabus moved in as ordinary course material
+├── DH2120/
+├── POLSCI2191/
+├── MOS2320/
+└── PSYCH1002/
+```
+
+Syllabi are treated as ordinary ingestible material (dropped straight into
+their course folder), not special config — per the earlier decision to
+defer topic-weighting/syllabus-aware pacing to a v2, not build it into
+`pacing_agent` now.
+
+### `courses.yaml` schema addition: `final_cumulative`
+
+Pulled directly from reading the actual syllabi — several state explicitly
+whether the final exam is cumulative or only covers post-midterm material.
+This is real input for `pacing_agent`, not just metadata:
+
+- `final_cumulative: true` — every chunk in the course stays in the spaced-
+  review rotation right up to the final, even ones covered weeks ago.
+- `final_cumulative: false` — pre-midterm chunks can wind down their review
+  cycle once the midterm passes; only post-midterm chunks need to be fresh
+  for the final.
+- `final_cumulative: null` — not stated in the syllabus; `pacing_agent`
+  should default to treating it as cumulative (safer to over-review than
+  have a chunk go stale that turns out to be tested).
+
+Several exam dates in the current `courses.yaml` are explicitly marked
+`PLACEHOLDER` (Registrar-scheduled finals not yet published, standard for
+Western mid-September) — update the file once real dates are posted;
+`pacing_agent` treats them as provisional targets until then.
+
 ## Remaining open items before implementation starts
 
-1. Exact Drive folder structure/permissions for course material (mirror
-   the existing `data/<course>/<topic>/<file>` convention, just rooted
-   in Drive instead of local disk).
+1. ~~Exact Drive folder structure~~ — done, see above.
 2. Your actual OmniRoute URL + API key, and which aliases you've set up
    (once the Railway deploy is done).
 3. Preferred send time for the daily Routine (needs a concrete
    hour/timezone to convert to a UTC cron expression).
+4. Real final exam dates, once Western's Registrar publishes them —
+   `courses.yaml` needs a manual update at that point.
