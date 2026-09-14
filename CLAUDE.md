@@ -28,16 +28,17 @@ a cron-scheduled Claude Code Routine.
     pre-midterm chunks wind down after the midterm passes; `null`
     (not stated in the syllabus) defaults to cumulative — safer to
     over-review than let something go stale that's actually tested.
-  - `content_router`: conditional edge, routes each assigned chunk to
-    `concept_agent` or `card_agent` by its existing `content_type` tag.
-    A content type with nothing due today means that agent just doesn't
-    fire — normal, not a bug. Every state field either agent might not
-    populate must default to empty; downstream nodes must treat "empty"
-    as a normal case.
-  - `concept_agent` / `card_agent`: produce concept-check questions and
-    Anki card drafts respectively, via model calls routed through
-    OmniRoute (never call a model client directly — see
-    `call_model()` in the design doc).
+  - `generate_agent`: one node, branches per-chunk on `content_type` —
+    conceptual chunks get a concept-check question, memorization chunks
+    get an Anki card draft, via model calls routed through OmniRoute
+    (never call a model client directly — see `call_model()` in the
+    design doc). Originally two separate nodes (`concept_agent` /
+    `card_agent`) plus a `content_router` edge; merged since the only
+    difference between them was prompt template and alias, not control
+    flow — see the design doc's "Revision" note. A content type with
+    nothing due today just produces an empty list — normal, not a bug;
+    every state field either branch might not populate must default to
+    empty, and downstream nodes must treat "empty" as a normal case.
   - `packet_writer`: deterministic, assembles the reading list +
     questions into the Artifact page and the cards into an `.apkg` via
     `genanki`.

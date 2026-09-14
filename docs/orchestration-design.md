@@ -40,21 +40,16 @@ Rethinking classification as LLM judgment is explicitly out of scope
                                   ▼
                          ┌─────────────────┐
                          │  pacing_agent    │  decides: new-today vs.
-                         │                  │  due-for-review, per chunk
+                         │  (deterministic) │  due-for-review, per chunk
                          └────────┬─────────┘
                                   │ today's assigned chunks
                                   ▼
                          ┌─────────────────┐
-                    ┌────┤  content_router  ├────┐
-                    │    └──────────────────┘    │
-                    ▼             ▼               ▼
-          ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-          │ concept_agent│ │  card_agent  │ │ (future: more │
-          │ (conceptual  │ │ (memorization│ │  specialized   │
-          │  chunks →    │ │  chunks →    │ │  content-type   │
-          │  questions)  │ │  Anki cards) │ │  agents)        │
-          └──────┬───────┘ └──────┬───────┘ └────────┬────────┘
-                  └────────────────┼───────────────────┘
+                         │  generate_agent  │  per chunk, branches on
+                         │                  │  content_type: writes a
+                         │                  │  concept question OR an
+                         │                  │  Anki card draft
+                         └────────┬─────────┘
                                   ▼
                          ┌─────────────────┐
                          │  packet_writer   │  assembles reading list +
@@ -64,23 +59,34 @@ Rethinking classification as LLM judgment is explicitly out of scope
                           output/ (morning packet + .apkg)
 ```
 
-`content_router` is a **conditional edge**, not an agent — it inspects
-each assigned chunk's `content_type` (already set by the deterministic
-`ingest/classify.py`) and routes it to `concept_agent` or `card_agent`.
-On a day where every due chunk happens to be conceptual, `card_agent`
-simply never fires. That is correct LangGraph behavior, not a bug — see
-"Partial participation" below for the one thing this requires of state
-design.
+**Revision (superseding an earlier 5-node draft):** `concept_agent` and
+`card_agent` were originally separate nodes with a `content_router`
+conditional edge between them. Merged into one `generate_agent` after
+review — the two nodes differed only in prompt template and (optionally)
+which OmniRoute alias to use per `content_type`; the actual code around
+each (call `call_model()`, parse the response, handle the empty case)
+was identical. Splitting them bought correctness nothing and duplicated
+boilerplate. `content_router` as a standalone node/edge is gone too —
+`generate_agent` just branches internally per-chunk on the `content_type`
+field `ingest/classify.py` already set.
 
-Per-content-type ingest agents (a separate PDF agent / slides agent /
-notes agent) are **not** included above: extraction is deterministic
-and format-specific already inside `ingest/extractors/`, so there's no
-judgment call there to hand to a model. If a real need for
-format-specific *agent* behavior shows up later (e.g. "summarize slide
-speaker notes differently than PDF body text"), that's a rider on
-`ingest_node`'s output. Splitting it out now would add router nodes with
-nothing but deterministic code behind them — the case flagged in the
-last question I asked you.
+The two-node version's only real property was letting `concept_agent`
+and `card_agent` run **in parallel** (as the only two nodes in the whole
+graph with no dependency on each other). Rejected as not worth the
+duplication: this pipeline makes a handful of model calls once a day,
+unattended, with nobody waiting on the result live — the wall-clock
+difference between running those calls concurrently vs. sequentially
+inside one node is on the order of seconds, invisible against an
+overnight run. Parallel nodes are worth it when a human is waiting on
+latency; that's not this pipeline. If call volume ever grows enough to
+matter, `generate_agent` can dispatch its own calls concurrently
+(threads/`asyncio.gather` over the assigned chunks) without needing to
+become two graph nodes again.
+
+Per-content-type *ingest* agents (a separate PDF agent / slides agent /
+notes agent) are **not** included above, for the same reason: extraction
+is deterministic and format-specific already inside `ingest/extractors/`,
+so there's no judgment call there to hand to a model.
 
 ## State schema
 
@@ -99,7 +105,8 @@ class PipelineState(TypedDict):
     assigned_chunks: list[Chunk]         # today's new + due-for-review
     pacing_notes: list[str]              # why each chunk was picked (debuggability)
 
-    # set by concept_agent / card_agent — both optional, may be empty lists
+    # set by generate_agent — both may be empty depending on which
+    # content types were actually assigned today (see "Partial participation")
     concept_questions: list[ConceptQuestion]
     anki_cards: list[AnkiCardDraft]
 
@@ -115,15 +122,16 @@ class PipelineState(TypedDict):
 
 ### Partial participation
 
-Because `content_router` may skip `card_agent` or `concept_agent`
-entirely on a given day, **every field a node might not populate must
-default to an empty list/`None`, and every downstream node must treat
-"empty" as a normal case, not an error.** `packet_writer` in particular
-must not assume both lists are non-empty — a concept-only day producing
-zero Anki cards is valid, not a failure. This is the one concrete
-consequence of the finer-grained-agents question from earlier: skipped
-nodes are fine as long as the state schema and downstream reads are
-written to expect it from day one.
+Because `generate_agent` may find zero chunks of one `content_type`
+assigned on a given day (e.g. everything due today happens to be
+conceptual), **`concept_questions` or `anki_cards` can legitimately come
+back empty, and every downstream node must treat "empty" as a normal
+case, not an error.** `packet_writer` in particular must not assume both
+lists are non-empty — a concept-only day producing zero Anki cards is
+valid, not a failure. This was originally framed around a node getting
+skipped entirely (back when routing was a separate graph edge); the
+principle is unchanged now that it's an internal branch in one node —
+only the mechanism moved.
 
 ## OmniRoute integration
 
@@ -146,10 +154,12 @@ does not need to reimplement cost routing — it needs to:
    ```yaml
    # config/models.yaml — aliases must exist in OmniRoute's own
    # /api/models/alias config; this file only says which alias each
-   # task type asks for.
-   pacing_agent: cheap-fast       # simple scheduling logic, low stakes
-   concept_agent: mid             # needs to write a decent question
-   card_agent: cheap-fast         # flashcards are short, mechanical
+   # task type asks for. pacing_agent is deterministic (no model call)
+   # and isn't listed; generate_agent looks up by content_type since
+   # it's one node handling both.
+   generate_agent:
+     conceptual: mid           # needs to write a decent question
+     memorization: cheap-fast  # flashcards are short, mechanical
    ```
 
    Changing which physical model an alias points to (e.g. swapping
@@ -161,10 +171,10 @@ does not need to reimplement cost routing — it needs to:
    and cost logging live in exactly one place:
 
    ```python
-   def call_model(task_type: str, messages: list, **kwargs) -> ModelResponse:
-       alias = MODEL_CONFIG[task_type]
+   def call_model(content_type: str, messages: list, **kwargs) -> ModelResponse:
+       alias = MODEL_CONFIG["generate_agent"][content_type]
        response = client.chat.completions.create(model=alias, messages=messages, **kwargs)
-       state["model_calls"].append(ModelCallLog(task_type, alias, response.usage, ...))
+       state["model_calls"].append(ModelCallLog(content_type, alias, response.usage, ...))
        return response
    ```
 
@@ -184,16 +194,14 @@ does not need to reimplement cost routing — it needs to:
 graph/
   state.py          # PipelineState TypedDict + sub-dataclasses
   nodes/
-    ingest_node.py   # thin wrapper around ingest.build_index()
+    ingest_node.py    # thin wrapper around ingest.build_index()
     pacing_agent.py
-    content_router.py
-    concept_agent.py
-    card_agent.py
+    generate_agent.py # branches per-chunk on content_type internally
     packet_writer.py
   models.py          # call_model() wrapper + MODEL_CONFIG loading
   build.py           # assembles the StateGraph, defines edges
 config/
-  models.yaml         # task type -> OmniRoute alias
+  models.yaml         # content_type -> OmniRoute alias, under generate_agent
 ```
 
 ## Decisions (locked in)
