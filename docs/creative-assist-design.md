@@ -83,9 +83,17 @@ Reuses existing infrastructure rather than building a parallel system:
   orchestration machinery this doesn't need (same "keep it simple"
   principle CLAUDE.md already states for `pacing_agent`).
 - **Cadence**: weekly, not daily — DH2120's cycle is Thursday/Friday
-  deadlines, so this wants its own weekly-scheduled Routine (or an
-  on-demand run), separate from the exam-prep pipeline's daily one.
-- **Delivery**: still open — see below.
+  deadlines, so this has its own weekly-scheduled Routine, separate from
+  the exam-prep pipeline's daily one. **Fires Tuesday morning** — the
+  week's content posts Monday morning, so Tuesday is the earliest point
+  the reading/reference material is actually available to synthesize
+  from, and it still leaves Tuesday through Thursday 8am to work with
+  the brainstorm draft rather than getting it the night before it's due.
+- **Delivery**: same private-Artifact pattern as the exam-prep morning
+  packet — one page, republished weekly to the same URL, opens already
+  signed in on your phone/laptop. No separate file push needed here
+  (unlike the exam-prep pipeline's `.apkg`) since both outputs are just
+  text, not a format an Artifact can't hold.
 
 ## Proposed file layout
 
@@ -99,16 +107,19 @@ creative_assist/
                        # syllabus's course schedule table
 ```
 
-## Open questions before implementation
+## Decisions (locked in)
 
-1. **Delivery format**: same private-Artifact-per-morning pattern as
-   the exam-prep packet, or something lighter (e.g. a plain text file
-   pushed to you) given this is just two short pieces of content, not a
-   whole packet?
-2. **Trigger timing**: what day/time do you want this ready by, given
-   the Thursday 8am deadline? Needs to run early enough that you have
-   real time with it, not an hour before.
-3. **Should this extend to your other creative-heavy courses later**,
-   or is DH2120 the only one with an actual AI-assist step designed
-   into it? (Worth checking each syllabus's specific policy before
-   extending, same as we did here — not a default "add every course.")
+1. **Delivery format**: private Claude Artifact, same pattern as the
+   exam-prep morning packet (see above).
+2. **Trigger timing**: weekly, **Tuesday morning** — after Monday's
+   content posts, well ahead of the Thursday 8am deadline. Exact hour
+   still needs a concrete timezone to convert to a UTC cron expression,
+   same open item as the exam-prep pipeline's daily send time.
+3. **Scope stays strictly DH2120.** Not extended to other courses. If
+   that changes later, re-run the same syllabus-policy check done here
+   before adding any course — no default assumption carries over.
+
+## Remaining open item
+
+- Exact send hour + timezone for the Tuesday Routine (mirrors the
+  exam-prep pipeline's still-open daily send-time question).
