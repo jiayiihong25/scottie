@@ -1,8 +1,25 @@
 # Project context
 
-Personal exam-prep automation. Not a product — single user, single owner.
-Full design rationale and decision history: `docs/orchestration-design.md`
-— read it before touching `graph/`, `pacing/`, or `generate/`.
+Personal academic automation. Not a product — single user, single owner.
+Two modules:
+
+1. **Exam-prep pipeline** (primary). Full design rationale and decision
+   history: `docs/orchestration-design.md` — read it before touching
+   `graph/`, `pacing/`, or `generate/`.
+2. **Creative coursework assist** (`creative_assist/`, DH2120 initially).
+   Design: `docs/creative-assist-design.md` — read it, especially the
+   scope/integrity section, before touching this module or extending it
+   to another course. This is deliberately narrow: it automates only
+   the parts of DH2120's weekly workflow that are (a) not graded
+   creative work, or (b) a step the course's own syllabus explicitly
+   designs AI assistance into ("Augmented Brainstorming"). It does not
+   draft Preparation, Design/Creation, or Review — those stay the
+   user's own work, full stop. Do not widen this module's scope to
+   other courses or other assignment steps without checking that
+   course's actual AI-use policy first, the same way this one was
+   checked — the project's syllabi have genuinely different policies
+   (see `docs/creative-assist-design.md` for specifics), so no default
+   assumption of "AI assistance is fine" carries across courses.
 
 ## Architecture (current target — see docs/orchestration-design.md for how we got here)
 
