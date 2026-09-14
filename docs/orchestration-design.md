@@ -226,9 +226,9 @@ resolved in conversation and now the basis for implementation.
 - **Auth**: `OMNIROUTE_BASE_URL` and `OMNIROUTE_API_KEY` come from
   `.env` locally (see `.env.example`) and from the Claude Code
   environment's own env vars when running inside a Routine — never
-  hardcoded, never committed. As of this writing the base URL is set;
-  the API key is still pending (dashboard login issue after a Railway
-  redeploy — see open items).
+  hardcoded, never committed. Both set and **verified working**
+  end-to-end (see open items for the alias gotcha found during
+  verification).
 - **Course material storage**: Google Drive (already connected as an
   MCP tool in this environment). `data/` stops being "whatever's on
   your laptop" and becomes "synced from a Drive folder" — the
@@ -295,13 +295,38 @@ Western mid-September) — update the file once real dates are posted;
 ## Remaining open items before implementation starts
 
 1. ~~Exact Drive folder structure~~ — done, see above.
-2. **OmniRoute — in progress.** Railway deploy is live, base URL known
-   (above), serverless mode on. Still pending: dashboard login (broken
-   after a redeploy that updated the password env var — should resolve
-   once it propagates), then generate the API key and set up at least
-   one free-tier provider + alias.
-3. Preferred send time for the daily Routine (needs a concrete
-   hour/timezone to convert to a UTC cron expression).
+2. ~~OmniRoute reachability~~ — **verified working end-to-end**, via
+   `scripts/test_omniroute.py auto` run from a real machine (the
+   original "Default" Claude Code environment has a restricted egress
+   allowlist that blocks Railway entirely — a separate "SCOTTIE"
+   environment was created with broader network access; use that
+   environment for the actual daily Routine). `model: "auto"` (lets
+   OmniRoute pick a working free provider) returned `HTTP 200` and a
+   real completion. **Gotcha found**: the named alias `cheap-fast`
+   returned `HTTP 400` — "Unable to determine provider for model
+   'cheap-fast'... ensure the model is added as a combo entry" — meaning
+   named aliases from `config/models.yaml` are not actually usable yet
+   until properly saved in OmniRoute's own dashboard (Aliases/Models
+   section; exact save format isn't documented in OmniRoute's own
+   wiki). Until aliases are confirmed working individually, `"auto"` is
+   a safe fallback default for any model reference.
+3. ~~Preferred send time for the daily Routine~~ — **8:30 AM Eastern**,
+   both this pipeline and `creative_assist/`. Cron runs in fixed UTC, so
+   this needs re-deriving whenever US Eastern's DST offset changes:
+   - Now through Sun Nov 1, 2026 (EDT, UTC-4): **12:30 UTC**
+   - From Nov 1, 2026 onward (EST, UTC-5): **13:30 UTC** — remember to
+     update both Routines' cron expressions then, they will not
+     auto-adjust.
 4. Real final exam dates — deliberately deferred; Western doesn't
    publish these until partway through term. Revisit `courses.yaml`
    when they're out, no urgency now.
+5. **Model-routing choice for `generate_agent`** — discussed but not
+   yet decided: call OmniRoute (free-tier, now confirmed working, but
+   real aliases still need dashboard setup), OmniRoute with your own
+   Anthropic key added as a paid provider, or skip the HTTP call
+   entirely and have the Routine's own Claude session reason directly
+   (uses Claude Code plan usage, not a separate bill). These are
+   mixable per-task, not an all-or-nothing pipeline choice — e.g.
+   direct reasoning for concept questions, OmniRoute free-tier for Anki
+   cards, is a legitimate combination. Still needs a final call before
+   `call_model()`/`generate_agent` gets built.
