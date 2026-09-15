@@ -235,6 +235,20 @@ resolved in conversation and now the basis for implementation.
   with its own login/server/database. The Artifact approach was chosen
   specifically to avoid that additional recurring cost and complexity.
 
+## Per-course packet reminders
+
+Each instructor posts material on their own schedule, and that cadence
+is data, not code — it lives per-course in `docs/courses/<course>.md`
+(e.g. `docs/courses/philosophy-1230.md`'s "Upload reminders" section),
+not hardcoded into `graph/`. `packet_writer` should read each active
+course's reminder entries and, on the matching day, surface a short
+"upload X to Drive today" line at the top of the morning packet
+alongside the reading list — separate from the concept
+questions/Anki cards, since it's an action item for the user, not
+generated content. This keeps the reminder text itself editable
+without touching pipeline code: adding/adjusting a course's upload
+cadence is a doc edit, not a `graph/` change.
+
 ## Remaining open items before implementation starts
 
 1. Exact Drive folder structure/permissions for course material (mirror

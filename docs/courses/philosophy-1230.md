@@ -19,6 +19,16 @@ building the content index and pacing decisions for this course.
   when pacing — they should not compete with tested content for a
   given day's review slot, but can be surfaced as supplementary.
 
+## Upload reminders
+
+- Lectures post every Wednesday. **Every Thursday morning**, upload the
+  incoming week's Wednesday lecture material to Drive (source for
+  `ingest/`).
+- This should surface in the morning packet as a standing Thursday
+  reminder — see "Per-course packet reminders" in
+  `docs/orchestration-design.md` for how `packet_writer` is meant to
+  pick this up once built.
+
 ## Chapter 1 (week 1, last Wednesday)
 
 - Source PDF: `lau-chap1.pdf` (not committed — belongs in `data/`,
