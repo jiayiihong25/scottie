@@ -19,6 +19,21 @@ building the content index and pacing decisions for this course.
   when pacing — they should not compete with tested content for a
   given day's review slot, but can be surfaced as supplementary.
 
+## Lesson plan / material access window
+
+- The course is structured as one lesson per week, numbered
+  sequentially (Lesson 1, Lesson 2, ...).
+- Lesson 1 has already been given (last Wednesday). Lesson 2 is
+  posted starting tomorrow (this Wednesday).
+- **Access is currently limited through Lesson 7** — module
+  textbook PDFs for Lessons 1–7 will be uploaded to Drive as they
+  become available. Material beyond Lesson 7 is not yet accessible.
+- **Known future update needed:** once Lesson 7 is reached, this doc
+  (and Drive access) will need to be refreshed with the next batch of
+  lessons — this is a standing TODO, not a one-time task. Flag this in
+  the packet as a reminder once pacing approaches Lesson 7, per
+  "Per-course packet reminders" in `docs/orchestration-design.md`.
+
 ## Upload reminders
 
 - Lectures post every Wednesday. **Every Thursday morning**, upload the
