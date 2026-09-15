@@ -18,3 +18,12 @@ building the content index and pacing decisions for this course.
   understanding. Treat these as lower priority than required readings
   when pacing — they should not compete with tested content for a
   given day's review slot, but can be surfaced as supplementary.
+
+## Chapter 1 (week 1, last Wednesday)
+
+- Source PDF: `lau-chap1.pdf` (not committed — belongs in `data/`,
+  per the ingest pipeline; course material lives in Drive, not the repo).
+- Companion site: https://philosophy.hku.hk/think/critical/
+- Required readings: C01, C02, C03, C05, C06 (includes reading the
+  Cognitive Reflection Test answers).
+- Optional readings: C04, C07, C08, C09.
