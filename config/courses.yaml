@@ -1,0 +1,43 @@
+# courses.yaml — read by pacing_agent to decide new-vs-due-for-review.
+#
+# final_cumulative:
+#   true  -> every chunk stays in review rotation until the final
+#   false -> pre-midterm chunks wind down after the midterm passes
+#   null  -> not stated; defaults to cumulative (safer)
+#
+# Dates marked PLACEHOLDER: not yet published by the Registrar.
+# Update once real dates are posted.
+
+PHILOSOP1230:
+  title: "Reasoning and Critical Thinking"
+  final_cumulative: null
+  exams:
+    midterm: PLACEHOLDER  # weeks 7-9, exact date TBD on Brightspace
+    final: "2026-12-11"   # PLACEHOLDER - Registrar exam period Dec 11-22
+
+DH2120:
+  title: "Digital Creativity"
+  final_cumulative: true
+  exams:
+    final: "2026-12-11"   # PLACEHOLDER - TBA by Registrar
+
+POLSCI2191:
+  title: "Special Topics in Political Science (Global Diplomacy and Peace)"
+  final_cumulative: false
+  exams:
+    midterm: PLACEHOLDER  # online, date TBC by instructor
+    final: "2026-12-11"   # PLACEHOLDER - in-person Dec 2026
+
+MOS2320:
+  title: "Marketing"
+  final_cumulative: true
+  exams:
+    midterm: "2026-10-25"  # confirmed, 1-3pm
+    final: "2026-12-11"    # PLACEHOLDER - Registrar exam period Dec 11-22
+
+PSYCH1002:
+  title: "Psychology as a Natural Science"
+  final_cumulative: false  # covers ch. 4-7 only
+  exams:
+    midterm: "2026-10-24"  # confirmed, Saturday
+    final: "2026-12-11"    # PLACEHOLDER - Registrar exam period Dec 11-22
