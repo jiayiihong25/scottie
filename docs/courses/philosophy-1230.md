@@ -44,6 +44,23 @@ building the content index and pacing decisions for this course.
   `docs/orchestration-design.md` for how `packet_writer` is meant to
   pick this up once built.
 
+## Uploaded to Drive so far
+
+- All "C" module lessons (critical-thinking companion site content,
+  e.g. C01, C02, ...) — uploaded, labeled `C0X`.
+- All "A" module lessons — uploaded, labeled `A0X`.
+
+## Known gap: Module A practice exercises
+
+- Module A has a good number of practice exercises that have **not**
+  been uploaded or reviewed yet.
+- Flag this during pacing/review: don't assume Module A's exercise
+  set is complete just because the lesson content is in Drive.
+  Someone (the user) still needs to go through and add/review those
+  exercises. Surface this as an open action item in the packet until
+  resolved — same mechanism as other per-course reminders, see
+  "Per-course packet reminders" in `docs/orchestration-design.md`.
+
 ## Chapter 1 (week 1, last Wednesday)
 
 - Source PDF: `lau-chap1.pdf` (not committed — belongs in `data/`,
