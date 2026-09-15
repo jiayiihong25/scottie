@@ -11,3 +11,6 @@ python-dotenv
 
 # OmniRoute (OpenAI-compatible HTTP gateway) calls
 requests
+
+# LangGraph (optional — pipeline runs sequentially without it)
+langgraph

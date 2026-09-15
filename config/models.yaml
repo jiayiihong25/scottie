@@ -1,0 +1,6 @@
+# OmniRoute alias per task. "auto" lets OmniRoute pick a working
+# free-tier provider; replace with named aliases once they're
+# configured in OmniRoute's dashboard.
+generate_agent:
+  conceptual: auto
+  memorization: auto
