@@ -5,6 +5,6 @@
 # for; swapping the physical model behind an alias happens in OmniRoute's
 # dashboard, not here — see docs/orchestration-design.md.
 
-pacing_agent: cheap-fast   # simple scheduling logic, low stakes
-concept_agent: mid         # needs to write a decent question
-card_agent: cheap-fast     # flashcards are short, mechanical
+pacing_agent: auto/cheap       # simple scheduling logic, low stakes
+concept_agent: auto/best-free  # needs to write a decent question
+card_agent: auto/cheap         # flashcards are short, mechanical
