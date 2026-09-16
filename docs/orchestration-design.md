@@ -235,6 +235,152 @@ resolved in conversation and now the basis for implementation.
   with its own login/server/database. The Artifact approach was chosen
   specifically to avoid that additional recurring cost and complexity.
 
+## Grading-scheme awareness (effort optimization)
+
+The stated goal of this project isn't "review everything spaced-out
+optimally" — it's highest grade for lowest effort. As currently
+specified, `pacing_agent` only sees `exam_dates` + the content index, so
+it has no way to know that, e.g., a course only requires 8 of 10
+assignments for full marks, or offers a research-credit option that
+substitutes for a chunk of the syllabus. Without that, the pipeline will
+happily schedule review for material that's already "bought back" by
+slack elsewhere in the grading scheme — the opposite of the goal.
+
+### What a grading scheme actually is
+
+Syllabus-level structure, not lecture content:
+
+- **Drop/threshold rules**: "best 8 of 10 assignments," "top 5 of 6
+  quizzes," lowest-N-dropped patterns.
+- **Alternate/substitute credit**: research credit, optional
+  participation marks, or other paths that award full-weight credit
+  without doing the "default" assigned work.
+- **Already-banked progress**: how many of the above the user has
+  already completed or locked in this term — this determines whether a
+  given remaining assignment is still load-bearing or now optional.
+
+This is structural per-course metadata, not something `ingest/`'s
+chunker should touch — a syllabus isn't a study-content source, and this
+data changes rarely (once per term, plus manual updates as credit gets
+banked), unlike lecture chunks which change per file dropped in Drive.
+
+### Where it lives
+
+A new small deterministic module, **not** a `graph/` agent — same
+"deterministic where possible" convention CLAUDE.md sets for
+`pacing_agent` itself:
+
+```
+config/
+  grading_schemes.yaml   # course -> rules + banked progress, hand-maintained
+graph/
+  nodes/
+    grading_scheme_loader.py  # thin loader, validates the YAML into
+                               # GradingScheme objects, no LLM call
+```
+
+`config/grading_schemes.yaml` sketch:
+
+```yaml
+DH:
+  assignments:
+    total: 10
+    required_for_full_marks: 8
+    completed: 6          # update by hand as you submit / bank credit
+    remaining_load_bearing: 2   # derived, or hand-set — see below
+  alt_credit:
+    - name: research_credit
+      covers: [unit_4, unit_7]   # topic/unit ids this substitutes for
+      status: confirmed          # confirmed | pending | not_pursuing
+OtherCourse:
+  assignments:
+    total: 6
+    required_for_full_marks: 6
+    completed: 3
+  alt_credit: []
+```
+
+`required_for_full_marks - completed` (clamped at 0) gives
+`remaining_load_bearing`: once that hits 0, no further assignment in
+that course is worth pipeline attention regardless of due dates. Keep
+this arithmetic in the loader, not hand-maintained, so it can't drift
+out of sync with `completed`.
+
+### State schema addition
+
+```python
+@dataclass
+class GradingScheme:
+    course: str
+    assignments_total: int
+    required_for_full_marks: int
+    assignments_completed: int
+    alt_credit: list[AltCredit]   # each: name, covers: list[topic/unit id], status
+
+    @property
+    def remaining_load_bearing(self) -> int:
+        return max(0, self.required_for_full_marks - self.assignments_completed)
+
+
+class PipelineState(TypedDict):
+    ...
+    # set by grading_scheme_loader
+    grading_schemes: dict[str, GradingScheme]   # course -> scheme, may be {}
+    ...
+```
+
+Same "partial participation" rule as the rest of the schema: a course
+with no entry in `grading_schemes.yaml` just means an empty/absent
+`GradingScheme` for it, and `pacing_agent` treats that as "no slack
+known — pace normally," not an error.
+
+### How `pacing_agent` uses it
+
+Two effects, both before spaced-repetition logic runs:
+
+1. **Skip chunks covered by confirmed alt-credit.** If a chunk's
+   `topic`/unit is listed under an `alt_credit` entry with
+   `status: confirmed`, `pacing_agent` excludes it from
+   `assigned_chunks` outright and logs why in `pacing_notes` (e.g.
+   `"DH unit_4 skipped — covered by research_credit"`). `pending` status
+   does *not* skip — only confirmed slack is safe to bank on.
+2. **Deprioritize, don't necessarily skip, when `remaining_load_bearing`
+   is 0.** If a course has already banked full marks on the
+   assignment/quiz component the scheme tracks, chunks tied to that
+   component drop in priority (or are excluded, if you want strict
+   effort-min behavior) even if nothing has explicitly marked them as
+   alt-credited — the "why review something that's mathematically
+   already worth zero" case.
+
+This stays deterministic rule application (lookup + arithmetic), so no
+`call_model()` involvement and no change to the "keep pacing simple and
+debuggable" convention — same as the rest of `pacing_agent`.
+
+### Maintenance model
+
+`grading_schemes.yaml` is hand-edited, not ingested from Drive or
+parsed from the syllabus PDF automatically. Syllabi are irregular
+documents and getting "8 of 10, best-of, alt-credit" parsing right via
+an LLM risks silently misreading a real grading rule — worse than doing
+nothing, since a wrong skip costs a grade. Auto-parsing as a *suggestion*
+you manually confirm into the YAML is a reasonable future add-on, but
+starts here as manual, matching CLAUDE.md's "start simple before
+sophistication" convention.
+
+### Open items
+
+1. Whether `remaining_load_bearing == 0` should **exclude** chunks
+   outright or just **deprioritize** them relative to exam-driven
+   review — depends how strictly you want to trust the banked-progress
+   math against, e.g., a late grade change.
+2. Whether alt-credit coverage is tracked at `topic`/unit granularity
+   (as sketched) or needs finer chunk-level mapping for courses where a
+   research credit only covers part of a unit.
+3. Update cadence for `completed` — manual edit after each submission,
+   or a lightweight prompt from the morning packet itself asking "did
+   you submit assignment N yesterday?" (adds a v2 feedback loop, not
+   needed for v1).
+
 ## Remaining open items before implementation starts
 
 1. Exact Drive folder structure/permissions for course material (mirror
