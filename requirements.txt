@@ -5,6 +5,10 @@ python-pptx
 # Anki card generation
 genanki
 
+# Orchestration (graph/) + OmniRoute (OpenAI-compatible gateway)
+langgraph
+openai
+
 # Config / misc
 pyyaml
 python-dotenv
