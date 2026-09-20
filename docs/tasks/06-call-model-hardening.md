@@ -1,6 +1,8 @@
 # 06 — Harden call_model: empty completions, retries, timeout
 
-**Size:** S · **Status:** not started
+**Size:** S · **Status:** done — empty completions raise; retries/timeout come from
+the OpenAI SDK client config (4 retries, 120s per attempt) rather than a custom
+loop; stray `pacing_agent` alias removed.
 
 ## Problem
 
