@@ -42,3 +42,20 @@ def test_errors_raise_and_leave_no_stale_manifest(tmp_path):
 
     # A stale manifest from a prior day must not survive a failed run.
     assert not (tmp_path / "delivery.json").exists()
+
+
+def test_ingest_warnings_render_as_banner_not_failure(tmp_path):
+    state = new_state()
+    state["ingest_errors"] = ["data/x/lecture-04.pdf: unreadable <scan>"]
+
+    packet_writer(state, tmp_path, TODAY)
+
+    page = (tmp_path / "morning_packet.html").read_text(encoding="utf-8")
+    assert "lecture-04.pdf" in page
+    assert "&lt;scan&gt;" in page  # escaped, not injected
+
+
+def test_no_warnings_means_no_banner(tmp_path):
+    packet_writer(new_state(), tmp_path, TODAY)
+    page = (tmp_path / "morning_packet.html").read_text(encoding="utf-8")
+    assert "could not be read" not in page
