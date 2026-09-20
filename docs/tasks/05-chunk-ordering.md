@@ -1,6 +1,8 @@
 # 05 — Fix cross-file chunk ordering in pacing_agent
 
-**Size:** S · **Status:** not started
+**Size:** S · **Status:** done — natural-sorted `source_file`, then `order`. Explicit
+per-course file sequence in `courses.yaml` deliberately not added; revisit once
+the real Drive folder's naming is known.
 
 ## Problem
 

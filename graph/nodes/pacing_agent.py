@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
@@ -68,6 +69,18 @@ def _next_review_due(cps: ChunkPacingState, today: date) -> bool:
     return today >= due_date
 
 
+def _natural_key(text: str) -> list[object]:
+    """Sort key where digit runs compare numerically: week2 < week10."""
+    return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", text)]
+
+
+def _course_order(chunk: Chunk) -> tuple[list[object], int]:
+    # `order` restarts at 0 in every source file (ingest/chunk.py), so it is
+    # only meaningful within a file. Filename order is the proxy for teaching
+    # order across files, which assumes names like lecture-01.pdf.
+    return (_natural_key(chunk.source_file), chunk.order)
+
+
 def pacing_agent(
     state: PipelineState,
     exam_dates: dict[str, date],
@@ -82,7 +95,7 @@ def pacing_agent(
     notes: list[str] = []
 
     for course in state["content_index"].courses:
-        chunks = sorted(state["content_index"].for_course(course), key=lambda c: c.order)
+        chunks = sorted(state["content_index"].for_course(course), key=_course_order)
         exam_date = exam_dates.get(course)
         if exam_date is None:
             notes.append(f"{course}: no exam date known — skipping pacing for this course")
