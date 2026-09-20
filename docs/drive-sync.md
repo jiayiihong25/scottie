@@ -1,65 +1,56 @@
-# Drive sync (Routine-orchestrated)
+# Drive sync (Python, service account)
 
-Decided per `docs/tasks/01-drive-sync.md`: the daily Claude Code Routine
-pulls and pushes Drive state via the Drive MCP tool, *before* and *after*
-invoking `python -m graph`. `graph/` and `ingest/` stay Python-only, no
-Drive dependency or service-account credentials in the codebase.
+Decided per `docs/tasks/01-drive-sync.md`. The Routine runs
+`python -m drive_sync pull` before the pipeline and `python -m drive_sync push`
+after a successful delivery. The pipeline (`graph/`, `ingest/`) still reads only
+local `data/`; the Drive dependency lives in `drive_sync/`.
 
-This means the sync step lives in the Routine's prompt (see
-`routine/daily_prompt.md`), not in this repo's Python. Local dev runs
-(`python -m graph`) still expect a hand-populated `data/` — that's
-unchanged and gitignored, same as today.
+Why not the Drive MCP connector: it returns file bytes as base64 through the
+model's context, so a daily sync of the PDFs would cost millions of tokens
+and lose nothing-but-bytes fidelity problems aside, it also cannot overwrite a
+file's contents (only rename/move). A service account downloads directly.
 
 ## Drive folder layout
 
-Mirrors the local convention, rooted at a single Drive folder (call it
-`scottie-data/`) instead of local `data/`:
+Rooted at the "JiaYi Courses" folder (`DRIVE_FOLDER_ID`):
 
 ```
-scottie-data/
+JiaYi Courses/
   courses.yaml
-  pacing_state.json
-  <course>/
-    <topic>/
-      <source file>
+  pacing_state.json      (edited in place by push)
+  artifact_url.txt       (edited in place by push)
+  <course>/<topic>/<source file>
+  <course>/<source file>            (topic defaults to "general")
+  _anything/                        (folders starting with "_" are skipped)
 ```
 
-## What the Routine does, in order
+Only `.pdf`, `.pptx/.ppt`, `.txt`, `.md` are downloaded; other files are
+reported as warnings. The root `README` is ignored.
 
-1. **Pull.** Before running the pipeline, list and download everything
-   under `scottie-data/` into the local `data/` (course material,
-   `courses.yaml`, `pacing_state.json`), preserving the
-   `<course>/<topic>/<file>` layout.
-2. **Fail loud if the pull didn't actually produce a usable `data/`.**
-   Don't proceed into `python -m graph` if:
-   - Drive is unreachable or the `scottie-data/` folder doesn't exist.
-   - `courses.yaml` didn't come down.
-   - No course subdirectories came down (now enforced in code too —
-     `ingest.pipeline.build_index` raises `IngestError` on a
-     course-dir-less `data_root`, so an empty/partial pull can't
-     silently produce a "nothing due today" packet).
-3. **Run the pipeline.** `python -m graph --data-root data --courses
-   data/courses.yaml --pacing-state data/pacing_state.json --out output`.
-4. **Push back only on success.** If and only if step 3 exits 0 and
-   produces both `output/packet.html` and the `.apkg`, upload the
-   updated `data/pacing_state.json` back to
-   `scottie-data/pacing_state.json`, overwriting the previous version.
-   A crash mid-run must never advance pacing state without a packet
-   having actually been delivered — that's the whole point of gating
-   the write-back on success.
-5. **Deliver.** Publish the packet as the private Artifact and send the
-   `.apkg` per `docs/orchestration-design.md`'s output-delivery section
-   (task 02).
+## Order of operations
+
+1. **pull** — download `courses.yaml`, the state files (absent only on the first
+   run) and every course file into `data/`. Fails (nonzero exit) if Drive is
+   unreachable, `courses.yaml` is missing, or no course material comes down, so
+   an empty pull can't become a cheerful "nothing due today" packet.
+2. **run** — `python -m graph`; require `output/delivery.json`.
+3. **deliver** — publish the Artifact, send the `.apkg` (see the design doc's
+   delivery boundary).
+4. **push** — only after delivery succeeded, write `pacing_state.json` and
+   `artifact_url.txt` back. A crash before this leaves state untouched, so
+   pacing can never advance without a delivered packet.
+
+## Setup (one time)
+
+- Service account with the Drive API enabled; its key supplied as
+  `GOOGLE_SERVICE_ACCOUNT_JSON` (Routine) or `GOOGLE_SERVICE_ACCOUNT_FILE`
+  (local `.env`). Never committed.
+- Share the folder with the service account's email as **Editor**.
+- Create `pacing_state.json` (containing `{}`) and an empty `artifact_url.txt`
+  in the folder by hand: a service account can edit files you own but cannot
+  create new ones in a personal Drive, so `push` is update-only.
 
 ## Idempotency
 
-Steps 1–2 are a full re-pull every run (simpler than incremental sync;
-revisit if the course folder gets big enough to be slow). Step 4's
-write-back is a plain overwrite of one file, so triggering the Routine
-twice in a day is safe: the second run pulls whatever the first run
-pushed and picks up from there — no partial merge logic needed.
-
-## Open
-
-- Exact Drive folder ID / sharing setup for `scottie-data/` — needs to
-  be created and shared with the account the Routine runs as.
+Pull is a full re-pull. Push overwrites one file's contents, so triggering the
+Routine twice in a day is safe: the second run pulls what the first pushed.

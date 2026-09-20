@@ -12,3 +12,7 @@ openai
 # Config / misc
 pyyaml
 python-dotenv
+
+# Drive sync (Routine)
+google-api-python-client
+google-auth

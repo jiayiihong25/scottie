@@ -4,8 +4,6 @@ This file is the source of truth for the Routine prompt. Paste its body (below
 the line) into the Routine; edit here, not in the web UI, so changes are
 reviewed. Schedule and environment settings are at the bottom.
 
-Placeholders in `<ANGLE_BRACKETS>` must be filled in before the Routine is
-created (Drive folder names, and the Artifact URL after the first run).
 
 ---
 
@@ -15,23 +13,25 @@ loudly** (see "Failure" below). Never deliver a partial or stale result.
 
 ## 1. Sync from Drive
 
-Working directory is an empty checkout of the repo. Using the Google Drive
-connector, download the Drive folder `<DRIVE_COURSE_FOLDER>` into `data/`,
-preserving its `course/topic/file` layout. It must contain:
+Working directory is an empty checkout of the repo. Install dependencies and
+pull the Drive folder into `data/` (Python does the download; do not fetch
+files through the Drive connector — PDFs would flow through your context):
 
-- course material (PDFs, slides, notes)
-- `courses.yaml`
-- `pacing_state.json` (absent only on the very first run — that is the one
-  case where you may continue without it)
-- `artifact_url.txt` (absent only on the very first run)
+```
+pip install -r requirements.txt
+python -m drive_sync pull
+```
 
-If the folder is missing, Drive is unreachable, or `courses.yaml` is absent,
-this is a failure. Do not run the pipeline against an empty `data/`.
+This fills `data/` with course material, `courses.yaml`, and (after the first
+run) `pacing_state.json` and `artifact_url.txt`. It exits nonzero if Drive is
+unreachable, `courses.yaml` is missing, or no course material is found. That
+is a failure: do not run the pipeline against an empty `data/`. Warnings on
+stderr (e.g. a skipped unsupported file) are not failures, but mention them
+in the final message.
 
 ## 2. Install and run
 
 ```
-pip install -r requirements.txt
 python -m graph
 ```
 
@@ -52,9 +52,10 @@ packet file and the deck file (or `null` on a day with no cards).
 2. If the manifest's `apkg` is not null, send `output/<apkg>` to the user as a
    file with `SendUserFile` (status `proactive`, display `attach`), with the
    Artifact link in the caption. If it is null, say there is no deck today.
-3. Only after both steps succeed: upload the updated `data/pacing_state.json`
-   and `data/artifact_url.txt` back to `<DRIVE_COURSE_FOLDER>`, overwriting the
-   old copies. Pacing state must never advance unless the packet was delivered.
+3. Only after both steps succeed, run `python -m drive_sync push` to write
+   the updated `data/pacing_state.json` and `data/artifact_url.txt` back to
+   Drive. Pacing state must never advance unless the packet was delivered.
+   A push failure is a failure: the next run would re-issue today's chunks.
 
 ## Failure
 
@@ -77,5 +78,12 @@ left off. Do not try to backfill.
   Cron is UTC-only: `0 10 * * *` while daylight time is in effect
   (through 2026-11-01), then `0 11 * * *`. Update the cron when the clocks
   change, or the packet arrives an hour early/late.
-- **Environment variables:** `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`.
-- **Connectors:** Google Drive.
+- **Environment variables:** `OMNIROUTE_BASE_URL`, `OMNIROUTE_API_KEY`,
+  `DRIVE_FOLDER_ID` (the "JiaYi Courses" folder id), and
+  `GOOGLE_SERVICE_ACCOUNT_JSON` (the service account key, pasted as one value).
+- **Connectors:** none required. The Drive connector is deliberately not used.
+- **One-time Drive setup:** share the folder with the service account's email
+  as Editor, and create empty `pacing_state.json` (containing `{}`) and
+  `artifact_url.txt` in the folder. A service account can edit files you own
+  but cannot create new ones in a personal Drive, so `push` needs these to
+  exist.
