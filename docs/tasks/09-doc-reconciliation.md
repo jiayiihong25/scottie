@@ -1,6 +1,7 @@
 # 09 — Reconcile stale docs with the built code
 
-**Size:** XS · **Status:** not started
+**Size:** XS · **Status:** done — README and design-doc header updated; chose to document
+the chain as the intended design (no conditional edge).
 
 ## Problem
 
