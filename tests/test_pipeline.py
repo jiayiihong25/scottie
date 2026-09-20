@@ -41,6 +41,13 @@ def test_build_index_missing_root_raises(tmp_path):
         build_index(tmp_path / "does-not-exist")
 
 
+def test_build_index_empty_root_raises(tmp_path):
+    empty_root = tmp_path / "data"
+    empty_root.mkdir()
+    with pytest.raises(IngestError):
+        build_index(empty_root)
+
+
 def test_build_index_records_per_file_errors_without_aborting(data_root):
     bad_dir = data_root / "bio101" / "broken"
     bad_dir.mkdir()

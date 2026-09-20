@@ -1,6 +1,6 @@
 # 01 — Google Drive sync for course material and pacing state
 
-**Size:** M · **Blocks:** every unattended run · **Status:** not started
+**Size:** M · **Blocks:** every unattended run · **Status:** in progress
 
 ## Problem
 
@@ -37,23 +37,38 @@ every day and look like it was working.
   mode `CLAUDE.md` forbids).
 - Deterministic, no LLM calls. Same category as `ingest/`.
 
+## Decision
+
+**Access mechanism: Routine prompt pulls/pushes via MCP**, not a Drive
+client inside `graph/`/`ingest/`. Keeps Python dependency-free; the
+Routine's prompt (draft: `routine/daily_prompt.md`) does the pull before
+`python -m graph` and the write-back after. Local dev runs still expect a
+hand-populated `data/`, unchanged from today. Full design:
+`docs/drive-sync.md`.
+
+Sync is a full re-pull every morning (course material is small; revisit
+if this gets slow). Write-back is a plain overwrite of
+`pacing_state.json`, which makes a same-day double-trigger safe with no
+merge logic needed — see "Idempotency" in `docs/drive-sync.md`.
+
+Landed so far: the empty-`data_root` fail-loud guard in
+`ingest/pipeline.py` (raises `IngestError` when a pull produced no course
+subdirectories, so a botched sync can't silently look like "nothing due
+today"), and the Drive folder layout + Routine prompt draft. Not yet
+landed: actually wiring the pull/push MCP calls into a real Routine
+(that's task 03's `create_trigger` call).
+
 ## Open questions
 
-- **Access mechanism.** Drive is connected as an MCP tool, which is
-  available to the Claude Code session but not to a plain
-  `python -m graph` process. Either the Routine prompt does the pull via
-  MCP before invoking the pipeline (keeps Python dependency-free, makes
-  local runs differ from Routine runs), or the pipeline uses a Drive
-  service-account client directly (uniform, but adds credentials and a
-  dependency). **Decide this first — it determines where the code lives.**
-- Sync the whole course folder every morning, or only changed files? Full
-  sync is simpler and course material is small; revisit if it gets slow.
-- Where does `pacing_state.json` live in Drive, and what happens if a run
-  is triggered twice in one day — is the write-back idempotent?
+- Exact Drive folder ID / sharing setup for `scottie-data/` — needs to be
+  created and shared with the account the Routine runs as.
 
 ## Files
 
 - `graph/nodes/ingest_node.py` — where the local-path assumption sits
 - `graph/__main__.py` — `--data-root`, `--courses`, `--pacing-state` flags
 - `graph/nodes/pacing_agent.py` — reads/writes the pacing state
-- `docs/orchestration-design.md` — "Course material" section
+- `ingest/pipeline.py` — empty-`data_root` guard
+- `docs/drive-sync.md` — full sync design
+- `routine/daily_prompt.md` — draft Routine prompt implementing it
+- `docs/orchestration-design.md` — "Course material storage" decision

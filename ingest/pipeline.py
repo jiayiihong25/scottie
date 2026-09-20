@@ -48,6 +48,14 @@ def build_index(
     if not data_root.is_dir():
         raise IngestError(f"data root {data_root} does not exist or is not a directory")
 
+    course_dirs = [p for p in data_root.iterdir() if p.is_dir()]
+    if not course_dirs:
+        raise IngestError(
+            f"data root {data_root} has no course subdirectories — "
+            "an unsynced or empty Drive pull would otherwise look like "
+            "'nothing due today' instead of failing loudly"
+        )
+
     index = ContentIndex()
     for course, topic, path in _iter_source_files(data_root):
         try:
