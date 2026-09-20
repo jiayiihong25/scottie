@@ -231,6 +231,21 @@ resolved in conversation and now the basis for implementation.
   (`SendUserFile`, proactive) alongside the Artifact link. You still
   import it into Anki yourself — no AnkiConnect/live-instance
   dependency, consistent with the original decision in `CLAUDE.md`.
+- **Delivery boundary (decided in task 02)**: the Artifact and
+  `SendUserFile` tools belong to the Claude Code session, not the Python
+  process. So `packet_writer` only *produces files*: on success it writes
+  `output/morning_packet.html`, optionally `output/morning_deck.apkg`, and
+  `output/delivery.json` (`{"date", "packet", "apkg"}`, `apkg` null on a
+  no-card day). The Routine prompt owns delivery: it reads the manifest,
+  republishes the packet to the stored Artifact URL, and sends the deck.
+  On any error `packet_writer` raises and deletes a stale manifest — **no
+  `delivery.json` means nothing is delivered**, and the Routine must treat
+  its absence as a failed run. The Artifact URL is persisted next to
+  `pacing_state.json` (task 01 syncs both); the first run creates the
+  Artifact and records the URL, later runs update by URL.
+- **Deck cadence**: one deck per day containing only that day's cards,
+  reusing the fixed model/deck IDs so Anki merges rather than duplicates.
+  Not cumulative — re-importing old notes buys nothing.
 - **Explicitly out of scope for cost reasons**: a standalone web app
   with its own login/server/database. The Artifact approach was chosen
   specifically to avoid that additional recurring cost and complexity.

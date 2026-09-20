@@ -39,7 +39,7 @@ def build_graph(
     )
     graph.add_node("concept", concept_agent)
     graph.add_node("card", card_agent)
-    graph.add_node("packet", lambda s: packet_writer(s, output_dir))
+    graph.add_node("packet", lambda s: packet_writer(s, output_dir, today))
 
     graph.set_entry_point("ingest")
     graph.add_edge("ingest", "pacing")

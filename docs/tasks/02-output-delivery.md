@@ -1,6 +1,7 @@
 # 02 — Output delivery: Artifact publish and .apkg push
 
-**Size:** M · **Blocks:** every unattended run · **Status:** not started
+**Size:** M · **Blocks:** every unattended run · **Status:** Python side done (manifest + boundary decided); the publish/send
+steps themselves land in the Routine prompt, task 03
 
 ## Problem
 

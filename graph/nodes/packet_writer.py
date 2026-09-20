@@ -9,6 +9,8 @@ this must not assume either list is non-empty.
 
 from __future__ import annotations
 
+import json
+from datetime import date
 from pathlib import Path
 
 import genanki
@@ -19,6 +21,7 @@ from ..state import PipelineState
 # Anki on import — genanki requires fixed model/deck ids.
 _ANKI_MODEL_ID = 1607392319
 _ANKI_DECK_ID = 2059400110
+_MANIFEST_NAME = "delivery.json"
 
 _ANKI_MODEL = genanki.Model(
     _ANKI_MODEL_ID,
@@ -34,9 +37,22 @@ _ANKI_MODEL = genanki.Model(
 )
 
 
-def packet_writer(state: PipelineState, output_dir: Path) -> PipelineState:
+def packet_writer(
+    state: PipelineState, output_dir: Path, today: date | None = None
+) -> PipelineState:
+    """Produces the files; delivery is the Routine's job, not ours.
+
+    Contract with the Routine: after a successful run, `delivery.json` in
+    output_dir lists exactly what to publish (the Artifact page) and send
+    (the .apkg, if any). No manifest means nothing to deliver.
+    """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    today = today or date.today()
+
+    manifest_path = output_dir / _MANIFEST_NAME
+    # Drop any manifest left by an earlier run so a stale one is never delivered.
+    manifest_path.unlink(missing_ok=True)
 
     if state["errors"]:
         # Fail loudly per CLAUDE.md — an incomplete run must not produce a
@@ -46,7 +62,7 @@ def packet_writer(state: PipelineState, output_dir: Path) -> PipelineState:
         )
 
     packet_path = output_dir / "morning_packet.html"
-    packet_path.write_text(_render_packet_html(state))
+    packet_path.write_text(_render_packet_html(state, today), encoding="utf-8")
     state["packet_path"] = packet_path
 
     if state["anki_cards"]:
@@ -56,10 +72,17 @@ def packet_writer(state: PipelineState, output_dir: Path) -> PipelineState:
     else:
         state["apkg_path"] = None
 
+    manifest = {
+        "date": today.isoformat(),
+        "packet": packet_path.name,
+        "apkg": state["apkg_path"].name if state["apkg_path"] else None,
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
     return state
 
 
-def _render_packet_html(state: PipelineState) -> str:
+def _render_packet_html(state: PipelineState, today: date) -> str:
     chunks_by_id = {c.chunk_id: c for c in state["assigned_chunks"]}
 
     reading_items = "\n".join(
@@ -80,7 +103,7 @@ def _render_packet_html(state: PipelineState) -> str:
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Morning Packet</title></head>
 <body>
-<h1>Morning Packet</h1>
+<h1>Morning Packet — {today.strftime("%A, %B %d, %Y")}</h1>
 <h2>Reading list</h2>
 {reading_section}
 <h2>Concept questions</h2>
