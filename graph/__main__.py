@@ -10,12 +10,33 @@ real date is posted.
 from __future__ import annotations
 
 import argparse
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import yaml
 
 from .build import run_pipeline
+
+
+def _coerce_date(value: object, course_name: str) -> date:
+    """YAML parses an unquoted 2026-10-15 straight into a date; a quoted one
+    stays a str. Accept either rather than assuming one.
+    """
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        try:
+            return date.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"course {course_name!r}: exam date {value!r} is not ISO YYYY-MM-DD"
+            ) from exc
+    raise ValueError(
+        f"course {course_name!r}: exam date must be a date or ISO YYYY-MM-DD "
+        f"string, got {type(value).__name__}"
+    )
 
 
 def _load_exam_dates(courses_yaml: Path) -> dict[str, date]:
@@ -25,10 +46,10 @@ def _load_exam_dates(courses_yaml: Path) -> dict[str, date]:
         name = course["name"]
         midterm = course.get("midterm_date")
         worst_case = course.get("worst_case_date")
-        chosen = midterm or worst_case
+        chosen = midterm if midterm is not None else worst_case
         if chosen is None:
             continue  # pacing_agent logs a pacing_note and skips this course
-        exam_dates[name] = date.fromisoformat(chosen)
+        exam_dates[name] = _coerce_date(chosen, name)
     return exam_dates
 
 

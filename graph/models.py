@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 import yaml
+from dotenv import load_dotenv
 from openai import OpenAI
 
 from .state import ModelCallLog, PipelineState
@@ -29,6 +30,10 @@ def _get_client() -> OpenAI:
     global _client
     if _client is not None:
         return _client
+
+    # Local runs keep credentials in .env; a Routine container supplies them
+    # as real env vars, which take precedence (load_dotenv never overrides).
+    load_dotenv()
 
     base_url = os.environ.get("OMNIROUTE_BASE_URL")
     api_key = os.environ.get("OMNIROUTE_API_KEY")
