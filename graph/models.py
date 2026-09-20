@@ -23,6 +23,13 @@ def _load_model_config() -> dict[str, str]:
 
 MODEL_CONFIG = _load_model_config()
 
+# The OpenAI SDK retries connection errors, timeouts, 408/409/429 and 5xx with
+# exponential backoff, and does not retry other 4xx (an auth error fails the
+# same way every time). Free-tier providers rate-limit, so allow a few tries;
+# the timeout is per attempt, so a hung request can't stall the Routine.
+_MAX_RETRIES = 4
+_TIMEOUT_SECONDS = 120.0
+
 _client: OpenAI | None = None
 
 
@@ -42,7 +49,12 @@ def _get_client() -> OpenAI:
             "OMNIROUTE_BASE_URL and OMNIROUTE_API_KEY must both be set "
             "(env vars or .env) — no fallback, per CLAUDE.md 'fail loudly'."
         )
-    _client = OpenAI(base_url=base_url, api_key=api_key)
+    _client = OpenAI(
+        base_url=base_url,
+        api_key=api_key,
+        max_retries=_MAX_RETRIES,
+        timeout=_TIMEOUT_SECONDS,
+    )
     return _client
 
 
@@ -54,8 +66,9 @@ def call_model(
 ) -> str:
     """Send a chat completion through OmniRoute and log the call.
 
-    Raises on any failure — an unreachable gateway must stop the run, not
-    silently produce an empty/malformed morning packet.
+    Returns a non-empty string or raises — an unreachable gateway or an
+    empty completion must stop the run, not silently produce an
+    empty/malformed morning packet. Nodes never need to defend against None.
     """
     alias = MODEL_CONFIG.get(task_type)
     if alias is None:
@@ -73,4 +86,11 @@ def call_model(
             completion_tokens=usage.completion_tokens if usage else 0,
         )
     )
-    return response.choices[0].message.content
+
+    content = response.choices[0].message.content
+    if not content or not content.strip():
+        raise RuntimeError(
+            f"call_model: empty completion for task_type {task_type!r} "
+            f"(alias {alias!r}) — likely a refusal or provider hiccup"
+        )
+    return content
