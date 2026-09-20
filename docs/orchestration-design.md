@@ -403,5 +403,11 @@ sophistication" convention.
    in Drive instead of local disk).
 2. Your actual OmniRoute URL + API key, and which aliases you've set up
    (once the Railway deploy is done).
-3. Preferred send time for the daily Routine (needs a concrete
-   hour/timezone to convert to a UTC cron expression).
+3. ~~Preferred send time for the daily Routine.~~ Decided: 6:00 AM
+   America/Toronto (cron `0 10 * * *` in daylight time, `0 11 * * *` after
+   2026-11-01). The Routine prompt lives in `routine/daily-prompt.md`.
+4. **Drive access mechanism (task 01's fork): decided — the Routine prompt
+   pulls from and pushes to Drive via the Drive MCP connector**, and the
+   Python pipeline stays dependency-free and reads only local `data/`. Local
+   runs therefore need `data/` populated by hand. Task 01 is now about the
+   prompt's sync steps and the Drive folder layout, not Python code.
