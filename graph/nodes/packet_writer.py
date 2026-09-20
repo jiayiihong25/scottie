@@ -9,6 +9,7 @@ this must not assume either list is non-empty.
 
 from __future__ import annotations
 
+import html
 import json
 from datetime import date
 from pathlib import Path
@@ -100,10 +101,19 @@ def _render_packet_html(state: PipelineState, today: date) -> str:
         f"<ul>{question_items}</ul>" if question_items else "<p>No concept questions today.</p>"
     )
 
+    warnings = "".join(f"<li>{html.escape(e)}</li>" for e in state["ingest_errors"])
+    banner = (
+        f"<div><strong>Some source files could not be read and are missing "
+        f"from today's prep:</strong><ul>{warnings}</ul></div>"
+        if warnings
+        else ""
+    )
+
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Morning Packet</title></head>
 <body>
 <h1>Morning Packet — {today.strftime("%A, %B %d, %Y")}</h1>
+{banner}
 <h2>Reading list</h2>
 {reading_section}
 <h2>Concept questions</h2>

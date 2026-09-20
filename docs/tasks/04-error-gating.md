@@ -1,6 +1,8 @@
 # 04 — Don't discard the whole packet over one bad source file
 
-**Size:** S · **Status:** not started
+**Size:** S · **Status:** done — ingest warnings render as a banner; an empty index
+raises in `ingest_node` before any model call. Proportion-based threshold
+still deliberately not implemented (see open question).
 
 ## Problem
 
