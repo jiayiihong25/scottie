@@ -1,9 +1,11 @@
-"""content_router — a conditional edge, not an agent.
+"""content_router — a plain helper, not a LangGraph edge or an agent.
 
-Routes each assigned chunk to concept_agent or card_agent by its existing
-content_type tag (set deterministically by ingest/classify.py). See
-docs/orchestration-design.md — a content type with nothing due today
-means that agent just doesn't fire; that's normal, not a bug.
+Splits assigned chunks by their existing content_type tag (set
+deterministically by ingest/classify.py). concept_agent and card_agent each
+call it and take their own half; a type with nothing due today yields an
+empty list and that agent does no work — normal, not a bug. See
+docs/orchestration-design.md ("Graph structure") for why this is a chain
+rather than a conditional edge.
 """
 
 from __future__ import annotations

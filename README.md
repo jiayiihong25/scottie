@@ -7,19 +7,23 @@ notes) as the source content.
 
 ## Status
 
-`ingest/` is built and tested. `pacing/`, `generate/`, and the daily cron
-entry point are not yet started — see `CLAUDE.md` for the architecture
-this is converging on.
+`ingest/` is built and tested. `graph/` (the LangGraph pipeline: pacing,
+concept and card generation, packet writing) is implemented as a proof of
+concept and covered by a few unit tests, but has not been run end to end
+against real course material or a live OmniRoute gateway. Drive sync and the
+daily Routine are still outstanding — see `docs/tasks/` for the work list and
+`CLAUDE.md` for the architecture.
 
 ## Structure
 
 ```
 ingest/     # extracts + normalizes PDFs, slides, notes into a common
             # content index (topic, source, page/slide range, text, type)
-pacing/     # (not yet built) scheduling engine — maps exam dates + content
-            # volume into a day-by-day plan, tracks what's due for review
-generate/   # (not yet built) daily generation logic — pulls today's
-            # content, produces concept-check questions and Anki cards
+graph/      # LangGraph pipeline: ingest -> pacing -> concept/card agents
+            # -> packet_writer. Run with `python -m graph`.
+config/     # models.yaml: task type -> OmniRoute model alias
+routine/    # the daily Claude Code Routine prompt (when present)
+docs/       # design doc (orchestration-design.md) and task specs (tasks/)
 output/     # generated morning packets + .apkg files (gitignored — personal)
 data/       # content index + course material (gitignored — personal)
 ```
@@ -63,6 +67,16 @@ Run the test suite (uses synthetic sample material committed under
 ```bash
 pytest
 ```
+
+## Running the pipeline
+
+```bash
+python -m graph                        # needs OMNIROUTE_BASE_URL / OMNIROUTE_API_KEY
+```
+
+Reads `data/courses.yaml` for exam dates and writes the morning packet and
+`.apkg` under `output/`. Model credentials come from the environment or a
+local `.env` (never committed).
 
 ## Eventual deployment
 

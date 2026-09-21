@@ -1,6 +1,10 @@
 # Multi-agent orchestration design (LangGraph + OmniRoute)
 
-Status: **design only, not yet implemented.** This document proposes the
+Status: **implemented as a proof of concept, untested end to end.** `graph/`
+was built from this design (commit `9f4dcae`); it has unit tests for parts
+of it but has not run against real course material or a live gateway. What
+is still outstanding lives in `docs/tasks/`. The rest of this document is
+the original design and rationale, kept for the decision history. It proposes the
 graph structure, state schema, and model-routing approach for rebuilding
 `pacing/` and `generate/` (and re-wrapping the already-built `ingest/`) as
 a LangGraph pipeline that calls models through a self-hosted OmniRoute
@@ -64,13 +68,23 @@ Rethinking classification as LLM judgment is explicitly out of scope
                           output/ (morning packet + .apkg)
 ```
 
-`content_router` is a **conditional edge**, not an agent — it inspects
-each assigned chunk's `content_type` (already set by the deterministic
-`ingest/classify.py`) and routes it to `concept_agent` or `card_agent`.
-On a day where every due chunk happens to be conceptual, `card_agent`
-simply never fires. That is correct LangGraph behavior, not a bug — see
-"Partial participation" below for the one thing this requires of state
-design.
+`content_router` is **not** a LangGraph conditional edge, and not an agent.
+It is a plain helper (`split_by_content_type`) that splits assigned chunks
+by their `content_type` tag (already set by the deterministic
+`ingest/classify.py`). The graph itself is a straight chain,
+`ingest -> pacing -> concept -> card -> packet`; `concept_agent` and
+`card_agent` each take their own half of the split and produce an empty
+list when nothing of their type is due. The diagram above shows the
+logical routing, not the wiring. On a day where every due chunk is
+conceptual, `card_agent` runs and does nothing — the same observable
+behavior as a skipped node.
+
+This was chosen over a real conditional edge because, with only two
+content types and no per-branch state, the edge would add wiring and a
+second place to debug without changing any output — and `CLAUDE.md` prefers
+debuggable before sophisticated. Revisit if a third content-type agent
+with different inputs appears. See "Partial participation" below for what
+this requires of state design.
 
 Per-content-type ingest agents (a separate PDF agent / slides agent /
 notes agent) are **not** included above: extraction is deterministic
@@ -147,7 +161,6 @@ does not need to reimplement cost routing — it needs to:
    # config/models.yaml — aliases must exist in OmniRoute's own
    # /api/models/alias config; this file only says which alias each
    # task type asks for.
-   pacing_agent: cheap-fast       # simple scheduling logic, low stakes
    concept_agent: mid             # needs to write a decent question
    card_agent: cheap-fast         # flashcards are short, mechanical
    ```
