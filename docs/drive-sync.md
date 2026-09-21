@@ -6,9 +6,9 @@ after a successful delivery. The pipeline (`graph/`, `ingest/`) still reads only
 local `data/`; the Drive dependency lives in `drive_sync/`.
 
 Why not the Drive MCP connector: it returns file bytes as base64 through the
-model's context, so a daily sync of the PDFs would cost millions of tokens
-and lose nothing-but-bytes fidelity problems aside, it also cannot overwrite a
-file's contents (only rename/move). A service account downloads directly.
+model's context, so a daily sync of the PDFs would cost millions of tokens, and
+it cannot overwrite a file's contents (only rename or move it). A service
+account downloads and updates files directly.
 
 ## Drive folder layout
 
