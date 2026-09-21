@@ -1,6 +1,8 @@
 # 01 — Google Drive sync for course material and pacing state
 
-**Size:** M · **Blocks:** every unattended run · **Status:** in progress
+**Size:** M · **Blocks:** every unattended run · **Status:** `drive_sync/` built and
+tested against a fake Drive; not yet run against the real folder (needs the
+service account key and the one-time Drive setup in `routine/daily-prompt.md`)
 
 ## Problem
 
@@ -39,36 +41,30 @@ every day and look like it was working.
 
 ## Decision
 
-**Access mechanism: Routine prompt pulls/pushes via MCP**, not a Drive
-client inside `graph/`/`ingest/`. Keeps Python dependency-free; the
-Routine's prompt (draft: `routine/daily_prompt.md`) does the pull before
-`python -m graph` and the write-back after. Local dev runs still expect a
-hand-populated `data/`, unchanged from today. Full design:
+**Access mechanism: Python, via a Google service account** (`drive_sync/`,
+run as `python -m drive_sync pull|push` around `python -m graph`). An earlier
+plan had the Routine prompt use the Drive MCP connector; it was dropped
+because the connector returns file bytes as base64 through the model's
+context (millions of tokens a day for the PDFs) and cannot overwrite file
+contents. `graph/` and `ingest/` still read only local `data/`. Full design:
 `docs/drive-sync.md`.
 
-Sync is a full re-pull every morning (course material is small; revisit
-if this gets slow). Write-back is a plain overwrite of
-`pacing_state.json`, which makes a same-day double-trigger safe with no
-merge logic needed — see "Idempotency" in `docs/drive-sync.md`.
+Sync is a full re-pull every morning (the container is empty anyway, so a
+changed-files cache would buy nothing). Write-back updates the existing
+`pacing_state.json` and `artifact_url.txt` in place, so a same-day
+double-trigger is safe with no merge logic.
 
-Landed so far: the empty-`data_root` fail-loud guard in
-`ingest/pipeline.py` (raises `IngestError` when a pull produced no course
-subdirectories, so a botched sync can't silently look like "nothing due
-today"), and the Drive folder layout + Routine prompt draft. Not yet
-landed: actually wiring the pull/push MCP calls into a real Routine
-(that's task 03's `create_trigger` call).
-
-## Open questions
-
-- Exact Drive folder ID / sharing setup for `scottie-data/` — needs to be
-  created and shared with the account the Routine runs as.
+Landed: `drive_sync/` with tests against a fake Drive, plus the empty-
+`data_root` fail-loud guard in `ingest/pipeline.py`. Not yet done: a live
+pull against the real folder, and wiring the env vars into the Routine (task
+03's `create_trigger` call).
 
 ## Files
 
+- `drive_sync/` — pull/push and the Google client
 - `graph/nodes/ingest_node.py` — where the local-path assumption sits
-- `graph/__main__.py` — `--data-root`, `--courses`, `--pacing-state` flags
 - `graph/nodes/pacing_agent.py` — reads/writes the pacing state
 - `ingest/pipeline.py` — empty-`data_root` guard
 - `docs/drive-sync.md` — full sync design
-- `routine/daily_prompt.md` — draft Routine prompt implementing it
+- `routine/daily-prompt.md` — the Routine prompt that calls it
 - `docs/orchestration-design.md` — "Course material storage" decision

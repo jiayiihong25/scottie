@@ -1,8 +1,8 @@
 # 03 — Daily Claude Code Routine
 
 **Size:** S · **Depends on:** 01, 02 · **Status:** prompt drafted in
-`routine/daily-prompt.md`; Routine itself not yet created, and the Drive
-folder placeholders are unfilled
+`routine/daily-prompt.md`; Routine itself not yet created (needs the Drive
+service account env vars, see the prompt file)
 
 ## Problem
 
