@@ -27,10 +27,14 @@ class GoogleDriveClient:
     def from_env(cls) -> GoogleDriveClient:
         load_dotenv()
         raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+        key_file = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE")
+        if not raw and key_file:
+            # Local convenience: point at the downloaded key instead of pasting it.
+            raw = Path(key_file).read_text(encoding="utf-8")
         if not raw:
             raise RuntimeError(
-                "GOOGLE_SERVICE_ACCOUNT_JSON must be set (env var or .env) — "
-                "the service account key's JSON contents"
+                "set GOOGLE_SERVICE_ACCOUNT_JSON (the key's JSON contents) or "
+                "GOOGLE_SERVICE_ACCOUNT_FILE (path to the key file), as env vars or in .env"
             )
         return cls(json.loads(raw))
 
