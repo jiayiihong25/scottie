@@ -1,6 +1,6 @@
 # 07 — Test coverage for graph/
 
-**Size:** M · **Status:** not started
+**Size:** M · **Status:** done — all five targets covered (`call_model` was already tested in task 06). Not covered: a full `run_pipeline` run with a stubbed `call_model`; `requirements-dev.txt` already pulls in `requirements.txt` + pytest, and the README documents the install.
 
 ## Problem
 
