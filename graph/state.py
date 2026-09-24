@@ -50,7 +50,13 @@ class PipelineState(TypedDict):
     exam_dates: dict[str, date]
     assigned_chunks: list[Chunk]
     new_chunk_ids: list[str]  # the subset of assigned_chunks seen for the first time
+    # not yet introduced, nearest exam first; lookahead pre-generates these
+    # with leftover request budget
+    lookahead_chunks: list[Chunk]
     pacing_notes: list[str]
+    # the user needs to see these in the packet, e.g. new material deferred
+    # because it didn't fit the daily request budget
+    pacing_warnings: list[str]
 
     # every known exam (midterms and finals) for daybook's countdown; set
     # before the graph runs, from courses.yaml
@@ -76,7 +82,9 @@ def new_state() -> PipelineState:
         exam_dates={},
         assigned_chunks=[],
         new_chunk_ids=[],
+        lookahead_chunks=[],
         pacing_notes=[],
+        pacing_warnings=[],
         exams=[],
         concept_questions=[],
         anki_cards=[],

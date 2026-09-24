@@ -275,7 +275,18 @@ resolved in conversation and now the basis for implementation.
   request that returns JSON keyed by `chunk_id`
   (`graph/nodes/batching.py`). Parsing is strict: a missing chunk or blank
   field raises. We don't use `response_format=json_object`, because not every
-  fallback provider accepts it.
+  fallback provider accepts it. When a file is generated, its chunks that
+  pacing hasn't introduced yet go into the same request (file companions),
+  so a lecture introduced over several days still costs one request.
+- **Daily request budget**: `budget.daily_request_budget` in
+  `config/models.yaml`. `pacing_agent` estimates today's requests with the
+  same batching the agents use. If new material won't fit, courses get the
+  budget in nearest-exam-first order, and the rest stays "new" for
+  tomorrow. The packet's "Behind schedule" warning (`pacing_warnings`)
+  says so. Reviews always go ahead, since they come from the cache. The
+  `lookahead` node (after `card_agent`) spends any leftover requests
+  pre-generating upcoming material, nearest exam first. `call_model`
+  refuses to exceed the budget as a hard backstop.
 - **Explicitly out of scope for cost reasons**: a standalone web app
   with its own login/server/database. The Artifact approach was chosen
   specifically to avoid that additional recurring cost and complexity.

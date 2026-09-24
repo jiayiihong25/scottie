@@ -15,6 +15,11 @@ card_agent: scottie-cards       # flashcards are short, mechanical
 # Request-budget knobs (free-tier providers cap requests per day, not
 # tokens). See graph/nodes/batching.py.
 budget:
+  # Most model requests one run may make. Set a little under the combo's
+  # primary provider's requests-per-day quota. pacing_agent defers new
+  # material that won't fit (nearest exam first), lookahead spends what's
+  # left on upcoming material, and call_model refuses to go past it.
+  daily_request_budget: 40
   # Most words of excerpt text per request. Consecutive chunks from one
   # source file share a request up to this size. A single larger chunk
   # still goes alone. ~6000 words is ~8k tokens, well inside Gemini Flash.

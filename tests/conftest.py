@@ -37,6 +37,7 @@ def fake_batch_model(monkeypatch):
     import re
 
     from graph.nodes import batching
+    from graph.state import ModelCallLog
 
     def install(**fields):
         prompts = []
@@ -44,6 +45,8 @@ def fake_batch_model(monkeypatch):
         def call_model(task_type, messages, state, **kwargs):
             prompt = messages[0]["content"]
             prompts.append(prompt)
+            # Log like the real call_model, so budget accounting sees it.
+            state["model_calls"].append(ModelCallLog(task_type, "fake", 0, 0))
             ids = re.findall(r"^### chunk_id: (\S+)", prompt, flags=re.MULTILINE)
             items = {
                 i: {k: (v(i) if callable(v) else v) for k, v in fields.items()} for i in ids

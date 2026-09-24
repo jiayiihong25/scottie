@@ -86,6 +86,16 @@ def call_model(
     if alias is None:
         raise ValueError(f"no OmniRoute alias configured for task_type {task_type!r}")
 
+    # Hard ceiling, backstopping pacing's estimate: never spend more than
+    # the day's free-tier quota and then fail halfway on 429s anyway.
+    budget = int(config_setting("daily_request_budget"))
+    if len(state["model_calls"]) >= budget:
+        raise RuntimeError(
+            f"call_model: daily request budget of {budget} already used this run "
+            f"(task_type {task_type!r}) — pacing's estimate was wrong, or "
+            "budget.daily_request_budget in config/models.yaml is too low"
+        )
+
     client = _get_client()
     response = client.chat.completions.create(model=alias, messages=messages, **kwargs)
 

@@ -12,9 +12,9 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from ..cache import cached_output, load_cache, save_cache, store_output
+from ..cache import cached_output, load_cache
 from ..state import ConceptQuestion, PipelineState
-from .batching import batch_max_words, generate_batch, make_batches
+from .batching import GenerationSpec, fill_cache
 from .content_router import split_by_content_type
 
 _INSTRUCTIONS = """You are writing concept-check questions for a student \
@@ -22,7 +22,7 @@ studying for an exam. For each excerpt, write one question that tests \
 understanding, not rote recall. Ask "why" or "how", not "what is the \
 definition of X"."""
 
-_FIELDS = ("question",)
+CONCEPT_SPEC = GenerationSpec("concept_agent", "concept", _INSTRUCTIONS, ("question",))
 
 
 def concept_agent(
@@ -32,13 +32,8 @@ def concept_agent(
     conceptual, _ = split_by_content_type(state["assigned_chunks"])
     cache = load_cache(cache_path)
 
-    misses = [c for c in conceptual if cached_output(cache, c, "concept") is None]
-    for batch in make_batches(misses, batch_max_words()):
-        outputs = generate_batch("concept_agent", _INSTRUCTIONS, _FIELDS, batch, state)
-        for chunk in batch:
-            store_output(cache, chunk, "concept", outputs[chunk.chunk_id], "concept_agent", today)
-        # Save per batch: a later failure must not waste quota already spent.
-        save_cache(cache_path, cache)
+    upcoming, _ = split_by_content_type(state["lookahead_chunks"])
+    fill_cache(CONCEPT_SPEC, conceptual, cache, cache_path, state, today, pool=upcoming)
 
     state["concept_questions"] = [
         ConceptQuestion(

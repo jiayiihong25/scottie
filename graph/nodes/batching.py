@@ -14,15 +14,103 @@ rule. A half-filled batch must not turn into blank questions or cards.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
 
 from ingest.models import Chunk
 
+from ..cache import Cache, cached_output, save_cache, store_output
 from ..models import call_model, config_setting
 from ..state import PipelineState
+from .content_router import split_by_content_type
+
+
+@dataclass(frozen=True)
+class GenerationSpec:
+    """What one agent generates: its call_model task type, cache kind,
+    prompt instructions and the fields it expects back per chunk."""
+
+    task_type: str
+    kind: str
+    instructions: str
+    fields: tuple[str, ...]
 
 
 def batch_max_words() -> int:
     return int(config_setting("batch_max_words"))
+
+
+def daily_request_budget() -> int:
+    return int(config_setting("daily_request_budget"))
+
+
+def misses(chunks: list[Chunk], cache: Cache, kind: str) -> list[Chunk]:
+    return [c for c in chunks if cached_output(cache, c, kind) is None]
+
+
+def with_file_companions(
+    chunks: list[Chunk], pool: list[Chunk], cache: Cache, kind: str
+) -> list[Chunk]:
+    """chunks' cache misses, plus the uncached chunks in `pool` that share
+    a source file with one of them.
+
+    Pacing introduces a lecture a chunk or two a day. Without this, each
+    day's slice of the same file is its own request. With it, the first
+    request for a file covers the rest of it too, for free while it fits
+    in batch_max_words.
+    """
+    wanted = misses(chunks, cache, kind)
+    files = {c.source_file for c in wanted}
+    ids = {c.chunk_id for c in wanted}
+    return wanted + [
+        c for c in misses(pool, cache, kind) if c.source_file in files and c.chunk_id not in ids
+    ]
+
+
+def estimated_requests(
+    assigned: list[Chunk], new_ids: set[str], cache: Cache, pool: list[Chunk]
+) -> int:
+    """Requests concept_agent + card_agent will make for this assignment.
+
+    Mirrors the agents exactly: questions for every uncached conceptual
+    chunk, cards only for uncached new memorization chunks, each plus its
+    file companions from the not-yet-introduced pool.
+    """
+    conceptual, memorization = split_by_content_type(assigned)
+    new_memorization = [c for c in memorization if c.chunk_id in new_ids]
+    pool_conceptual, pool_memorization = split_by_content_type(pool)
+    max_words = batch_max_words()
+    concept = with_file_companions(conceptual, pool_conceptual, cache, "concept")
+    card = with_file_companions(new_memorization, pool_memorization, cache, "card")
+    return len(make_batches(concept, max_words)) + len(make_batches(card, max_words))
+
+
+def fill_cache(
+    spec: GenerationSpec,
+    chunks: list[Chunk],
+    cache: Cache,
+    cache_path: Path,
+    state: PipelineState,
+    today: date,
+    max_requests: int | None = None,
+    pool: list[Chunk] = (),
+) -> int:
+    """Generate and cache output for every uncached chunk (plus its file
+    companions from `pool`), one request per batch, stopping after
+    max_requests if given. Returns requests made.
+    """
+    todo = with_file_companions(chunks, list(pool), cache, spec.kind)
+    batches = make_batches(todo, batch_max_words())
+    if max_requests is not None:
+        batches = batches[:max_requests]
+    for batch in batches:
+        outputs = generate_batch(spec.task_type, spec.instructions, spec.fields, batch, state)
+        for chunk in batch:
+            store_output(cache, chunk, spec.kind, outputs[chunk.chunk_id], spec.task_type, today)
+        # Save per batch: a later failure must not waste quota already spent.
+        save_cache(cache_path, cache)
+    return len(batches)
 
 
 def make_batches(chunks: list[Chunk], max_words: int) -> list[list[Chunk]]:

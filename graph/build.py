@@ -18,7 +18,9 @@ from langgraph.graph import END, StateGraph
 
 from .nodes.card_agent import card_agent
 from .nodes.concept_agent import concept_agent
+from .nodes.batching import daily_request_budget
 from .nodes.ingest_node import ingest_node
+from .nodes.lookahead import lookahead
 from .nodes.packet_writer import packet_writer
 from .nodes.pacing_agent import pacing_agent
 from .state import PipelineState, new_state
@@ -32,21 +34,27 @@ def build_graph(
     cache_path: Path,
     today: date | None = None,
 ):
+    request_budget = daily_request_budget()
     graph = StateGraph(PipelineState)
 
     graph.add_node("ingest", lambda s: ingest_node(s, data_root))
     graph.add_node(
-        "pacing", lambda s: pacing_agent(s, exam_dates, pacing_state_path, today)
+        "pacing",
+        lambda s: pacing_agent(
+            s, exam_dates, pacing_state_path, today, cache_path, request_budget
+        ),
     )
     graph.add_node("concept", lambda s: concept_agent(s, cache_path, today))
     graph.add_node("card", lambda s: card_agent(s, cache_path, today))
+    graph.add_node("lookahead", lambda s: lookahead(s, cache_path, request_budget, today))
     graph.add_node("packet", lambda s: packet_writer(s, output_dir, today))
 
     graph.set_entry_point("ingest")
     graph.add_edge("ingest", "pacing")
     graph.add_edge("pacing", "concept")
     graph.add_edge("concept", "card")
-    graph.add_edge("card", "packet")
+    graph.add_edge("card", "lookahead")
+    graph.add_edge("lookahead", "packet")
     graph.add_edge("packet", END)
 
     return graph.compile()

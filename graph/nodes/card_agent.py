@@ -15,16 +15,16 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from ..cache import cached_output, load_cache, save_cache, store_output
+from ..cache import cached_output, load_cache
 from ..state import AnkiCardDraft, PipelineState
-from .batching import batch_max_words, generate_batch, make_batches
+from .batching import GenerationSpec, fill_cache
 from .content_router import split_by_content_type
 
 _INSTRUCTIONS = """You are writing Anki flashcards. For each excerpt, pick \
 the single most important fact, term, or definition worth memorizing. \
 "front" is the question or term; "back" is the answer or definition."""
 
-_FIELDS = ("front", "back")
+CARD_SPEC = GenerationSpec("card_agent", "card", _INSTRUCTIONS, ("front", "back"))
 
 
 def card_agent(
@@ -37,13 +37,8 @@ def card_agent(
     new_memorization = [c for c in memorization if c.chunk_id in new_ids]
     cache = load_cache(cache_path)
 
-    misses = [c for c in new_memorization if cached_output(cache, c, "card") is None]
-    for batch in make_batches(misses, batch_max_words()):
-        outputs = generate_batch("card_agent", _INSTRUCTIONS, _FIELDS, batch, state)
-        for chunk in batch:
-            store_output(cache, chunk, "card", outputs[chunk.chunk_id], "card_agent", today)
-        # Save per batch: a later failure must not waste quota already spent.
-        save_cache(cache_path, cache)
+    _, upcoming = split_by_content_type(state["lookahead_chunks"])
+    fill_cache(CARD_SPEC, new_memorization, cache, cache_path, state, today, pool=upcoming)
 
     cards = []
     for chunk in new_memorization:
