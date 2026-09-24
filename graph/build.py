@@ -57,6 +57,9 @@ def run_pipeline(
     pacing_state_path: Path,
     output_dir: Path,
     today: date | None = None,
+    exams: list[dict] | None = None,
 ) -> PipelineState:
     compiled = build_graph(data_root, exam_dates, pacing_state_path, output_dir, today)
-    return compiled.invoke(new_state())
+    state = new_state()
+    state["exams"] = exams or []
+    return compiled.invoke(state)

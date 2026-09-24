@@ -53,6 +53,24 @@ def _load_exam_dates(courses_yaml: Path) -> dict[str, date]:
     return exam_dates
 
 
+def _load_exams(courses_yaml: Path) -> list[dict]:
+    """Every dated exam, midterms and finals, for daybook's countdown.
+
+    Unlike _load_exam_dates (one pacing target per course), this lists both.
+    """
+    data = yaml.safe_load(courses_yaml.read_text())
+    exams = []
+    for course in data["courses"]:
+        name = course["name"]
+        for key, label in (("midterm_date", "Midterm"), ("final_date", "Final")):
+            if course.get(key) is not None:
+                exams.append(
+                    {"course": name, "name": label,
+                     "date": _coerce_date(course[key], name).isoformat()}
+                )
+    return exams
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-root", default="data", type=Path)
@@ -62,7 +80,10 @@ def main() -> None:
     args = parser.parse_args()
 
     exam_dates = _load_exam_dates(args.courses)
-    state = run_pipeline(args.data_root, exam_dates, args.pacing_state, args.out)
+    state = run_pipeline(
+        args.data_root, exam_dates, args.pacing_state, args.out,
+        exams=_load_exams(args.courses),
+    )
 
     print(f"Assigned {len(state['assigned_chunks'])} chunks")
     print(f"  concept questions: {len(state['concept_questions'])}")

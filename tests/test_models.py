@@ -1,3 +1,4 @@
+import re
 from types import SimpleNamespace
 
 import pytest
@@ -17,7 +18,8 @@ def _client_returning(content):
 def test_empty_completion_raises_naming_task_and_alias(monkeypatch, content):
     monkeypatch.setattr(models, "_get_client", lambda: _client_returning(content))
 
-    with pytest.raises(RuntimeError, match=r"concept_agent.*auto/best-free"):
+    alias = re.escape(models.MODEL_CONFIG["concept_agent"])
+    with pytest.raises(RuntimeError, match=rf"concept_agent.*{alias}"):
         models.call_model("concept_agent", [{"role": "user", "content": "hi"}], new_state())
 
 

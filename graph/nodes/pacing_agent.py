@@ -92,6 +92,7 @@ def pacing_agent(
     pacing_state = _load_pacing_state(pacing_state_path)
 
     assigned: list[Chunk] = []
+    new_ids: list[str] = []
     notes: list[str] = []
 
     for course in state["content_index"].courses:
@@ -110,6 +111,7 @@ def pacing_agent(
         for chunk in new_today:
             pacing_state[chunk.chunk_id] = ChunkPacingState(first_seen=today)
             assigned.append(chunk)
+            new_ids.append(chunk.chunk_id)
             notes.append(
                 f"{course} {chunk.chunk_id}: new — {len(new_chunks)} new chunks left, "
                 f"{days_remaining} days to {exam_date.isoformat()}"
@@ -128,6 +130,7 @@ def pacing_agent(
                 )
 
     state["assigned_chunks"] = assigned
+    state["new_chunk_ids"] = new_ids
     state["pacing_notes"] = notes
     _save_pacing_state(pacing_state_path, pacing_state)
     return state

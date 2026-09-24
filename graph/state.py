@@ -49,7 +49,12 @@ class PipelineState(TypedDict):
     # set by pacing_agent
     exam_dates: dict[str, date]
     assigned_chunks: list[Chunk]
+    new_chunk_ids: list[str]  # the subset of assigned_chunks seen for the first time
     pacing_notes: list[str]
+
+    # every known exam (midterms and finals) for daybook's countdown; set
+    # before the graph runs, from courses.yaml
+    exams: list[dict]
 
     # set by concept_agent / card_agent — both optional, may be empty
     concept_questions: list[ConceptQuestion]
@@ -70,7 +75,9 @@ def new_state() -> PipelineState:
         ingest_errors=[],
         exam_dates={},
         assigned_chunks=[],
+        new_chunk_ids=[],
         pacing_notes=[],
+        exams=[],
         concept_questions=[],
         anki_cards=[],
         packet_path=None,

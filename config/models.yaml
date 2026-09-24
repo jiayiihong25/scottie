@@ -5,5 +5,9 @@
 # for; swapping the physical model behind an alias happens in OmniRoute's
 # dashboard, not here — see docs/orchestration-design.md.
 
-concept_agent: auto/best-free  # needs to write a decent question
-card_agent: auto/cheap         # flashcards are short, mechanical
+# Custom combos, not OmniRoute's built-in auto/* routers: auto/best-free
+# only picks models it tags "free" (just the Felo web providers, which
+# 400/429 constantly), and auto/* choices can change on their own. Both
+# combos are Gemini 3 Flash first, then the Felo providers as fallback.
+concept_agent: scottie-concept  # needs to write a decent question
+card_agent: scottie-cards       # flashcards are short, mechanical
