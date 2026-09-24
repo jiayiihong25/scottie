@@ -2,12 +2,22 @@
 
 Calls the model through call_model() only — never a client directly, per
 docs/orchestration-design.md.
+
+Only chunks assigned for the first time (state["new_chunk_ids"]) get cards:
+Anki runs its own review schedule once a card is imported, so re-sending
+a card on every pacing review pass would only pile up duplicates. A card
+is generated once and served from the generation cache after that (e.g.
+a rerun the same day).
 """
 
 from __future__ import annotations
 
+from datetime import date
+from pathlib import Path
+
 from ingest.models import Chunk
 
+from ..cache import cached_output, load_cache, save_cache, store_output
 from ..models import call_model
 from ..state import AnkiCardDraft, PipelineState
 from .content_router import split_by_content_type
@@ -23,23 +33,36 @@ Excerpt ({unit_range}):
 {text}"""
 
 
-def card_agent(state: PipelineState) -> PipelineState:
+def card_agent(
+    state: PipelineState, cache_path: Path, today: date | None = None
+) -> PipelineState:
+    today = today or date.today()
     _, memorization = split_by_content_type(state["assigned_chunks"])
+    new_ids = set(state["new_chunk_ids"])
+    cache = load_cache(cache_path)
     cards: list[AnkiCardDraft] = []
 
     for chunk in memorization:
-        raw = call_model(
-            "card_agent",
-            [{"role": "user", "content": _format_prompt(chunk)}],
-            state,
-        )
-        front, back = _parse_card(raw)
+        if chunk.chunk_id not in new_ids:
+            continue  # a review pass: Anki already has this card
+        output = cached_output(cache, chunk, "card")
+        if output is None:
+            raw = call_model(
+                "card_agent",
+                [{"role": "user", "content": _format_prompt(chunk)}],
+                state,
+            )
+            front, back = _parse_card(raw)
+            output = {"front": front, "back": back}
+            store_output(cache, chunk, "card", output, "card_agent", today)
+            # Save per call: a later failure must not waste quota already spent.
+            save_cache(cache_path, cache)
         cards.append(
             AnkiCardDraft(
                 chunk_id=chunk.chunk_id,
                 course=chunk.course,
-                front=front,
-                back=back,
+                front=output["front"],
+                back=output["back"],
                 model_alias="card_agent",
             )
         )

@@ -89,18 +89,20 @@ def main() -> None:
     parser.add_argument("--data-root", default="data", type=Path)
     parser.add_argument("--courses", default="data/courses.yaml", type=Path)
     parser.add_argument("--pacing-state", default="data/pacing_state.json", type=Path)
+    parser.add_argument("--cache", default="data/generated.json", type=Path)
     parser.add_argument("--out", default="output", type=Path)
     args = parser.parse_args()
 
     exam_dates = _load_exam_dates(args.courses, date.today())
     state = run_pipeline(
-        args.data_root, exam_dates, args.pacing_state, args.out,
+        args.data_root, exam_dates, args.pacing_state, args.out, args.cache,
         exams=_load_exams(args.courses),
     )
 
     print(f"Assigned {len(state['assigned_chunks'])} chunks")
     print(f"  concept questions: {len(state['concept_questions'])}")
     print(f"  anki cards: {len(state['anki_cards'])}")
+    print(f"  model calls: {len(state['model_calls'])}")
     for note in state["pacing_notes"]:
         print(f"  - {note}")
     print(f"Packet: {state['packet_path']}")

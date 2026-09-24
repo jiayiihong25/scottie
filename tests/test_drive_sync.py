@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from drive_sync.sync import FOLDER_MIME, DriveItem, DriveSyncError, pull, push
+from drive_sync.sync import CACHE_FILES, FOLDER_MIME, DriveItem, DriveSyncError, pull, push
 
 
 class FakeDrive:
@@ -43,7 +43,7 @@ def _drive(root_extra=()):
         "t1": [_f("b", "lec2.txt")],
         "intake": [_f("s", "syllabus.pdf", "application/pdf")],
     }
-    blobs = {k: k.encode() for k in ("y", "a", "b", "s", "sp", "au")}
+    blobs = {k: k.encode() for k in ("y", "a", "b", "s", "sp", "au", "gc")}
     return FakeDrive(tree, blobs)
 
 
@@ -110,3 +110,22 @@ def test_push_without_drive_placeholder_fails_loudly(tmp_path):
     (tmp_path / "pacing_state.json").write_text("{}")
     with pytest.raises(DriveSyncError, match="placeholder"):
         push(_drive(), "root", tmp_path)
+
+
+def test_cache_only_push_leaves_pacing_state_alone(tmp_path):
+    (tmp_path / "pacing_state.json").write_text("{}")
+    (tmp_path / "generated.json").write_text('{"a": 1}')
+    drive = _drive([_f("sp", "pacing_state.json"), _f("gc", "generated.json")])
+
+    push(drive, "root", tmp_path, CACHE_FILES)
+
+    assert drive.updated == {"gc": b'{"a": 1}'}
+
+
+def test_full_push_includes_the_cache(tmp_path):
+    (tmp_path / "generated.json").write_text("{}")
+    drive = _drive([_f("gc", "generated.json")])
+
+    push(drive, "root", tmp_path)
+
+    assert drive.updated == {"gc": b"{}"}

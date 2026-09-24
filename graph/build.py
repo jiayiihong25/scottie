@@ -29,6 +29,7 @@ def build_graph(
     exam_dates: dict[str, date],
     pacing_state_path: Path,
     output_dir: Path,
+    cache_path: Path,
     today: date | None = None,
 ):
     graph = StateGraph(PipelineState)
@@ -37,8 +38,8 @@ def build_graph(
     graph.add_node(
         "pacing", lambda s: pacing_agent(s, exam_dates, pacing_state_path, today)
     )
-    graph.add_node("concept", concept_agent)
-    graph.add_node("card", card_agent)
+    graph.add_node("concept", lambda s: concept_agent(s, cache_path, today))
+    graph.add_node("card", lambda s: card_agent(s, cache_path, today))
     graph.add_node("packet", lambda s: packet_writer(s, output_dir, today))
 
     graph.set_entry_point("ingest")
@@ -56,10 +57,13 @@ def run_pipeline(
     exam_dates: dict[str, date],
     pacing_state_path: Path,
     output_dir: Path,
+    cache_path: Path,
     today: date | None = None,
     exams: list[dict] | None = None,
 ) -> PipelineState:
-    compiled = build_graph(data_root, exam_dates, pacing_state_path, output_dir, today)
+    compiled = build_graph(
+        data_root, exam_dates, pacing_state_path, output_dir, cache_path, today
+    )
     state = new_state()
     state["exams"] = exams or []
     return compiled.invoke(state)
