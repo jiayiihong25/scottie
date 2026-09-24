@@ -2,79 +2,80 @@ import json
 
 import pytest
 
-from graph.nodes import concept_agent as mod
+from graph.nodes import batching
+from graph.nodes.concept_agent import concept_agent
 from graph.state import new_state
 from ingest.models import MEMORIZATION
 
 
-def test_only_conceptual_chunks_get_questions_and_output_is_stripped(monkeypatch, make_chunk, tmp_path):
-    monkeypatch.setattr(mod, "call_model", lambda *a, **k: "  Why does X hold?\n")
+def _run(tmp_path, chunks):
     state = new_state()
-    state["assigned_chunks"] = [
+    state["assigned_chunks"] = chunks
+    return concept_agent(state, tmp_path / "generated.json")
+
+
+def test_only_conceptual_chunks_get_questions(fake_batch_model, make_chunk, tmp_path):
+    fake_batch_model(question=lambda i: f"Why {i}?")
+
+    out = _run(tmp_path, [
         make_chunk("a.pdf", 0, content_type="conceptual"),
         make_chunk("a.pdf", 1, content_type=MEMORIZATION),
-    ]
-
-    out = mod.concept_agent(state, tmp_path / "generated.json")
+    ])
 
     assert [(q.chunk_id, q.question) for q in out["concept_questions"]] == [
-        ("a.pdf#0", "Why does X hold?")
+        ("a.pdf#0", "Why a.pdf#0?")
     ]
 
 
-def test_no_conceptual_chunks_means_no_calls(monkeypatch, make_chunk, tmp_path):
-    def boom(*a, **k):
-        raise AssertionError("call_model must not fire")
+def test_no_conceptual_chunks_means_no_calls(fake_batch_model, make_chunk, tmp_path):
+    prompts = fake_batch_model(question="Why?")
 
-    monkeypatch.setattr(mod, "call_model", boom)
-    state = new_state()
-    state["assigned_chunks"] = [make_chunk(content_type=MEMORIZATION)]
-
-    assert mod.concept_agent(state, tmp_path / "generated.json")["concept_questions"] == []
+    assert _run(tmp_path, [make_chunk(content_type=MEMORIZATION)])["concept_questions"] == []
+    assert prompts == []
 
 
-def test_review_pass_reuses_the_cached_question(monkeypatch, make_chunk, tmp_path):
-    calls = []
-    monkeypatch.setattr(mod, "call_model", lambda *a, **k: calls.append(1) or "Why?")
-    cache = tmp_path / "generated.json"
+def test_one_request_per_source_file(fake_batch_model, make_chunk, tmp_path):
+    prompts = fake_batch_model(question="Why?")
+
+    out = _run(tmp_path, [make_chunk("a.pdf", i) for i in range(3)] + [make_chunk("b.pdf", 0)])
+
+    assert len(prompts) == 2
+    assert len(out["concept_questions"]) == 4
+
+
+def test_review_pass_reuses_the_cached_question(fake_batch_model, make_chunk, tmp_path):
+    prompts = fake_batch_model(question="Why?")
 
     for _ in range(3):
-        state = new_state()
-        state["assigned_chunks"] = [make_chunk()]
-        out = mod.concept_agent(state, cache)
+        out = _run(tmp_path, [make_chunk()])
 
-    assert len(calls) == 1
+    assert len(prompts) == 1
     assert [q.question for q in out["concept_questions"]] == ["Why?"]
 
 
-def test_edited_source_text_is_regenerated(monkeypatch, make_chunk, tmp_path):
-    answers = iter(["Old?", "New?"])
-    monkeypatch.setattr(mod, "call_model", lambda *a, **k: next(answers))
-    cache = tmp_path / "generated.json"
+def test_edited_source_text_is_regenerated(fake_batch_model, make_chunk, tmp_path):
+    fake_batch_model(question="Old?")
+    _run(tmp_path, [make_chunk(text="original text")])
+    fake_batch_model(question="New?")
 
-    for text in ("original text", "revised text"):
-        state = new_state()
-        state["assigned_chunks"] = [make_chunk(text=text)]
-        out = mod.concept_agent(state, cache)
+    out = _run(tmp_path, [make_chunk(text="revised text")])
 
     assert out["concept_questions"][0].question == "New?"
 
 
 def test_quota_spent_before_a_failure_is_kept(monkeypatch, make_chunk, tmp_path):
-    answers = iter(["Why A?"])
+    calls = []
 
-    def call(*a, **k):
-        answer = next(answers, None)
-        if answer is None:
-            raise RuntimeError("429: quota exhausted")  # the second chunk
-        return answer
+    def call_model(*a, **k):
+        calls.append(1)
+        if len(calls) > 1:
+            raise RuntimeError("429: quota exhausted")  # the second file's request
+        return json.dumps({"items": {"a.pdf#0": {"question": "Why A?"}}})
 
-    monkeypatch.setattr(mod, "call_model", call)
-    cache = tmp_path / "generated.json"
-    state = new_state()
-    state["assigned_chunks"] = [make_chunk("a.pdf", 0), make_chunk("a.pdf", 1)]
+    monkeypatch.setattr(batching, "call_model", call_model)
 
     with pytest.raises(RuntimeError):
-        mod.concept_agent(state, cache)
+        _run(tmp_path, [make_chunk("a.pdf", 0), make_chunk("b.pdf", 0)])
 
-    assert list(json.loads(cache.read_text(encoding="utf-8"))) == ["a.pdf#0"]
+    cache = json.loads((tmp_path / "generated.json").read_text(encoding="utf-8"))
+    assert list(cache) == ["a.pdf#0"]

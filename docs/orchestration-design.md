@@ -269,6 +269,13 @@ resolved in conversation and now the basis for implementation.
   reuse the cache. It's saved after every call and synced with Drive like
   `pacing_state.json`, but it can also be pushed after a failed run
   (`drive_sync push --cache-only`), because it never advances pacing.
+- **Batched generation**: the limit is on requests, not tokens, so cache
+  misses are grouped per source file into batches of up to
+  `budget.batch_max_words` (`config/models.yaml`). Each batch is one
+  request that returns JSON keyed by `chunk_id`
+  (`graph/nodes/batching.py`). Parsing is strict: a missing chunk or blank
+  field raises. We don't use `response_format=json_object`, because not every
+  fallback provider accepts it.
 - **Explicitly out of scope for cost reasons**: a standalone web app
   with its own login/server/database. The Artifact approach was chosen
   specifically to avoid that additional recurring cost and complexity.

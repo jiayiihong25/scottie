@@ -17,11 +17,23 @@ from .state import ModelCallLog, PipelineState
 _CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "models.yaml"
 
 
-def _load_model_config() -> dict[str, str]:
+def _load_model_config() -> dict:
     return yaml.safe_load(_CONFIG_PATH.read_text())
 
 
 MODEL_CONFIG = _load_model_config()
+
+
+def config_setting(name: str):
+    """A value from config/models.yaml's `budget:` section. Raises if unset.
+
+    There's no silent default, so the knobs that decide daily request usage
+    stay visible in one file.
+    """
+    budget = MODEL_CONFIG.get("budget") or {}
+    if name not in budget:
+        raise ValueError(f"config/models.yaml is missing budget.{name}")
+    return budget[name]
 
 # The OpenAI SDK retries connection errors, timeouts, 408/409/429 and 5xx with
 # exponential backoff, and does not retry other 4xx (an auth error fails the

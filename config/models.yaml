@@ -11,3 +11,11 @@
 # combos are Gemini 3 Flash first, then the Felo providers as fallback.
 concept_agent: scottie-concept  # needs to write a decent question
 card_agent: scottie-cards       # flashcards are short, mechanical
+
+# Request-budget knobs (free-tier providers cap requests per day, not
+# tokens). See graph/nodes/batching.py.
+budget:
+  # Most words of excerpt text per request. Consecutive chunks from one
+  # source file share a request up to this size. A single larger chunk
+  # still goes alone. ~6000 words is ~8k tokens, well inside Gemini Flash.
+  batch_max_words: 6000
