@@ -48,12 +48,36 @@ def cached_output(cache: Cache, chunk: Chunk, kind: str) -> dict | None:
 
 
 def store_output(
-    cache: Cache, chunk: Chunk, kind: str, output: dict, model_alias: str, today: date
+    cache: Cache,
+    chunk: Chunk,
+    kind: str,
+    output: dict,
+    model_alias: str,
+    today: date,
+    summary: str | None = None,
 ) -> None:
+    """summary is the overview of the batch this chunk was generated in,
+    stored on each of the batch's chunks so it goes stale with them."""
     cache[chunk.chunk_id] = {
         "kind": kind,
         "text_hash": text_hash(chunk.text),
         "output": output,
+        "summary": summary,
         "model_alias": model_alias,
         "generated_on": today.isoformat(),
     }
+
+
+def file_summary(cache: Cache, file_chunks: list[Chunk]) -> str | None:
+    """A source file's summary: the distinct batch summaries stored on its
+    (fresh) chunks, in chunk order. None if nothing's summarized yet.
+    """
+    parts: list[str] = []
+    for chunk in file_chunks:
+        entry = cache.get(chunk.chunk_id)
+        if entry is None or entry["text_hash"] != text_hash(chunk.text):
+            continue
+        summary = entry.get("summary")
+        if summary and summary not in parts:
+            parts.append(summary)
+    return "\n\n".join(parts) or None

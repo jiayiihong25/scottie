@@ -105,9 +105,13 @@ def fill_cache(
     if max_requests is not None:
         batches = batches[:max_requests]
     for batch in batches:
-        outputs = generate_batch(spec.task_type, spec.instructions, spec.fields, batch, state)
+        summary, outputs = generate_batch(
+            spec.task_type, spec.instructions, spec.fields, batch, state
+        )
         for chunk in batch:
-            store_output(cache, chunk, spec.kind, outputs[chunk.chunk_id], spec.task_type, today)
+            store_output(
+                cache, chunk, spec.kind, outputs[chunk.chunk_id], spec.task_type, today, summary
+            )
         # Save per batch: a later failure must not waste quota already spent.
         save_cache(cache_path, cache)
     return len(batches)
@@ -144,9 +148,12 @@ _ENVELOPE = """{instructions}
 The excerpts below come from one source file of the course {course}. Write \
 one result per excerpt, based only on that excerpt.
 
+Also write "summary": 2-4 plain sentences on what these excerpts cover \
+together, for a student's reading list.
+
 Reply with a single JSON object and nothing else, no preamble and no code \
 fence, in exactly this shape, with every chunk_id below as a key:
-{{"items": {{"<chunk_id>": {shape}}}}}
+{{"summary": "...", "items": {{"<chunk_id>": {shape}}}}}
 
 {excerpts}"""
 
@@ -167,8 +174,11 @@ def generate_batch(
     fields: tuple[str, ...],
     batch: list[Chunk],
     state: PipelineState,
-) -> dict[str, dict[str, str]]:
-    """One call_model request for the batch. Returns {chunk_id: {field: text}}."""
+) -> tuple[str, dict[str, dict[str, str]]]:
+    """One call_model request for the batch.
+
+    Returns (summary, {chunk_id: {field: text}}).
+    """
     prompt = _format_prompt(instructions, fields, batch)
     raw = call_model(task_type, [{"role": "user", "content": prompt}], state)
     return parse_batch(raw, [c.chunk_id for c in batch], fields, task_type)
@@ -176,7 +186,7 @@ def generate_batch(
 
 def parse_batch(
     raw: str, chunk_ids: list[str], fields: tuple[str, ...], task_type: str
-) -> dict[str, dict[str, str]]:
+) -> tuple[str, dict[str, dict[str, str]]]:
     try:
         data = json.loads(_strip_code_fence(raw))
     except json.JSONDecodeError as exc:
@@ -185,6 +195,10 @@ def parse_batch(
     items = data.get("items") if isinstance(data, dict) else None
     if not isinstance(items, dict):
         raise ValueError(f"{task_type} got unparseable model output (no 'items' object): {raw!r}")
+
+    summary = data.get("summary")
+    if not isinstance(summary, str) or not summary.strip():
+        raise ValueError(f"{task_type} got unparseable model output (no 'summary'): {raw!r}")
 
     results: dict[str, dict[str, str]] = {}
     for chunk_id in chunk_ids:
@@ -200,7 +214,7 @@ def parse_batch(
                 )
             values[f] = value.strip()
         results[chunk_id] = values
-    return results
+    return summary.strip(), results
 
 
 def _strip_code_fence(raw: str) -> str:

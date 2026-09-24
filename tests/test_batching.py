@@ -30,16 +30,20 @@ def test_interleaved_files_still_share_a_batch(make_chunk):
     assert [len(b) for b in make_batches(chunks, max_words=100)] == [2, 1]
 
 
-def test_parses_items_and_strips_whitespace():
-    raw = json.dumps({"items": {"a#0": {"front": " q ", "back": "a: b"}}})
-    assert parse_batch(raw, ["a#0"], ("front", "back"), "card_agent") == {
-        "a#0": {"front": "q", "back": "a: b"}
-    }
+def test_parses_summary_and_items_and_strips_whitespace():
+    raw = json.dumps(
+        {"summary": " Covers X. ", "items": {"a#0": {"front": " q ", "back": "a: b"}}}
+    )
+    assert parse_batch(raw, ["a#0"], ("front", "back"), "card_agent") == (
+        "Covers X.", {"a#0": {"front": "q", "back": "a: b"}}
+    )
 
 
 def test_tolerates_a_code_fence():
-    raw = '```json\n{"items": {"a#0": {"question": "Why?"}}}\n```'
-    assert parse_batch(raw, ["a#0"], ("question",), "concept_agent") == {"a#0": {"question": "Why?"}}
+    raw = '```json\n{"summary": "S", "items": {"a#0": {"question": "Why?"}}}\n```'
+    assert parse_batch(raw, ["a#0"], ("question",), "concept_agent") == (
+        "S", {"a#0": {"question": "Why?"}}
+    )
 
 
 @pytest.mark.parametrize(
@@ -48,11 +52,13 @@ def test_tolerates_a_code_fence():
         "",
         "Sure, here are your cards.",
         "[]",
-        '{"a#0": {"question": "Why?"}}',             # no "items" wrapper
-        '{"items": {}}',                              # chunk missing
-        '{"items": {"a#0": {}}}',                     # field missing
-        '{"items": {"a#0": {"question": "   "}}}',    # blank field
-        '{"items": {"a#0": {"question": 3}}}',        # not a string
+        '{"summary": "S", "a#0": {"question": "Why?"}}',         # no "items" wrapper
+        '{"summary": "S", "items": {}}',                          # chunk missing
+        '{"summary": "S", "items": {"a#0": {}}}',                 # field missing
+        '{"summary": "S", "items": {"a#0": {"question": "  "}}}', # blank field
+        '{"summary": "S", "items": {"a#0": {"question": 3}}}',    # not a string
+        '{"items": {"a#0": {"question": "Why?"}}}',               # no summary
+        '{"summary": " ", "items": {"a#0": {"question": "Why?"}}}',  # blank summary
     ],
 )
 def test_malformed_output_raises_rather_than_making_blank_output(raw):
