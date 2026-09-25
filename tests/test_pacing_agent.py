@@ -51,6 +51,31 @@ def test_new_material_is_spread_across_days_to_the_exam(tmp_path, make_chunk):
     assert _ids(out) == ["f.pdf#0", "f.pdf#1"]
 
 
+def test_far_exam_introduces_new_material_within_the_window(tmp_path, make_chunk):
+    # 14 new chunks, exam months away: ceil(14 / 7-day window) = 2 today,
+    # not ceil(14 / ~100 days) = 1.
+    chunks = [make_chunk(order=i) for i in range(14)]
+
+    out = _run(chunks, tmp_path, TODAY, exam=date(2027, 1, 1))
+
+    assert _ids(out) == ["f.pdf#0", "f.pdf#1"]
+
+
+def test_late_upload_is_introduced_within_the_window(tmp_path, make_chunk):
+    chunks = [make_chunk(order=0)]
+    _run(chunks, tmp_path, TODAY, exam=date(2027, 1, 1))
+    # A 7-chunk lecture lands in Drive a week later.
+    chunks += [make_chunk("lecture-08.pdf", i) for i in range(7)]
+
+    new_per_day = []
+    for offset in range(7, 14):
+        out = _run(chunks, tmp_path, TODAY + timedelta(days=offset), exam=date(2027, 1, 1))
+        new_per_day.append(len(out["new_chunk_ids"]))
+
+    # ceil(7 / 7) = 1 a day: the whole lecture is in within a week.
+    assert new_per_day == [1] * 7
+
+
 def test_chunk_returns_for_review_on_the_cadence_and_graduates(tmp_path, make_chunk):
     chunk = make_chunk()
     hits = []
