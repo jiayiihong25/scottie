@@ -23,6 +23,10 @@ from ..state import PipelineState
 _ANKI_MODEL_ID = 1607392319
 _ANKI_DECK_ID = 2059400110
 _MANIFEST_NAME = "delivery.json"
+# Read by daybook (repo scottie-display) for its Exam prep section. The
+# schema is owned there: scottie-display/docs/scottie-contract.md.
+_DAYBOOK_PACKET_NAME = "packet.json"
+_DAYBOOK_SCHEMA_VERSION = 1
 
 _ANKI_MODEL = genanki.Model(
     _ANKI_MODEL_ID,
@@ -52,8 +56,10 @@ def packet_writer(
     today = today or date.today()
 
     manifest_path = output_dir / _MANIFEST_NAME
+    daybook_path = output_dir / _DAYBOOK_PACKET_NAME
     # Drop any manifest left by an earlier run so a stale one is never delivered.
     manifest_path.unlink(missing_ok=True)
+    daybook_path.unlink(missing_ok=True)
 
     if state["errors"]:
         # Fail loudly per CLAUDE.md — an incomplete run must not produce a
@@ -73,6 +79,11 @@ def packet_writer(
     else:
         state["apkg_path"] = None
 
+    daybook_path.write_text(
+        json.dumps(_daybook_packet(state, today), indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
     manifest = {
         "date": today.isoformat(),
         "packet": packet_path.name,
@@ -81,6 +92,50 @@ def packet_writer(
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     return state
+
+
+def _daybook_packet(state: PipelineState, today: date) -> dict:
+    """The same day's packet as data, per scottie-display's contract."""
+    chunks_by_id = {c.chunk_id: c for c in state["assigned_chunks"]}
+    new_ids = set(state["new_chunk_ids"])
+
+    warnings = list(state["ingest_errors"])
+    warnings += [
+        f"{course}: no exam date in courses.yaml, so it isn't in today's prep"
+        for course in state["content_index"].courses
+        if course not in state["exam_dates"]
+    ]
+
+    return {
+        "schema_version": _DAYBOOK_SCHEMA_VERSION,
+        "date": today.isoformat(),
+        "exams": state["exams"],
+        "reading": [
+            {
+                "course": c.course,
+                "topic": c.topic,
+                "source_file": Path(c.source_file).name,
+                "unit_range": c.unit_range,
+                "kind": "new" if c.chunk_id in new_ids else "review",
+            }
+            for c in state["assigned_chunks"]
+        ],
+        "questions": [
+            {
+                "course": q.course,
+                "unit_range": chunks_by_id[q.chunk_id].unit_range,
+                "question": q.question,
+            }
+            for q in state["concept_questions"]
+            if q.chunk_id in chunks_by_id
+        ],
+        "deck": (
+            {"new_cards": len(state["anki_cards"]), "file": state["apkg_path"].name}
+            if state["apkg_path"]
+            else None
+        ),
+        "warnings": warnings,
+    }
 
 
 def _render_packet_html(state: PipelineState, today: date) -> str:

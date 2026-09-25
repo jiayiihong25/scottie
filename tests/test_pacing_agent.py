@@ -115,3 +115,14 @@ def test_courses_are_paced_independently(tmp_path, make_chunk):
 
     assert _ids(out) == ["a.pdf#0"]
     assert any(n.startswith("B: no exam date") for n in out["pacing_notes"])
+
+
+def test_new_chunk_ids_mark_first_pass_not_reviews(tmp_path, make_chunk):
+    chunks = [make_chunk(order=0)]
+    _run(chunks, tmp_path, TODAY)
+    chunks.append(make_chunk(order=1))
+
+    out = _run(chunks, tmp_path, TODAY + timedelta(days=1))
+
+    assert _ids(out) == ["f.pdf#1", "f.pdf#0"]
+    assert out["new_chunk_ids"] == ["f.pdf#1"]
