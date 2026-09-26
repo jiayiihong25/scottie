@@ -2,9 +2,10 @@
 
 Reads exam dates from data/courses.yaml (personal, gitignored — synced
 from the Drive courses.yaml, same convention as course material under
-data/). A course with no confirmed midterm_date but a stated exam window
-falls back to worst_case_date, which must be filled in by hand until the
-real date is posted.
+data/). Each course is paced toward its next exam that hasn't happened
+yet: the midterm until it passes, then the final. A course with no
+confirmed midterm_date but a stated exam window uses worst_case_date in
+its place, which must be filled in by hand until the real date is posted.
 """
 
 from __future__ import annotations
@@ -39,17 +40,29 @@ def _coerce_date(value: object, course_name: str) -> date:
     )
 
 
-def _load_exam_dates(courses_yaml: Path) -> dict[str, date]:
+def _load_exam_dates(courses_yaml: Path, today: date) -> dict[str, date]:
+    """One pacing target per course: its earliest exam on or after today.
+
+    Material keeps arriving through the term, so the target has to roll
+    forward to the final once the midterm is behind us — otherwise every
+    post-midterm upload lands on a target in the past.
+    """
     data = yaml.safe_load(courses_yaml.read_text())
     exam_dates = {}
     for course in data["courses"]:
         name = course["name"]
         midterm = course.get("midterm_date")
-        worst_case = course.get("worst_case_date")
-        chosen = midterm if midterm is not None else worst_case
-        if chosen is None:
+        if midterm is None:
+            midterm = course.get("worst_case_date")
+        candidates = [
+            _coerce_date(value, name)
+            for value in (midterm, course.get("final_date"))
+            if value is not None
+        ]
+        upcoming = [d for d in candidates if d >= today]
+        if not upcoming:
             continue  # pacing_agent logs a pacing_note and skips this course
-        exam_dates[name] = _coerce_date(chosen, name)
+        exam_dates[name] = min(upcoming)
     return exam_dates
 
 
@@ -76,18 +89,20 @@ def main() -> None:
     parser.add_argument("--data-root", default="data", type=Path)
     parser.add_argument("--courses", default="data/courses.yaml", type=Path)
     parser.add_argument("--pacing-state", default="data/pacing_state.json", type=Path)
+    parser.add_argument("--cache", default="data/generated.json", type=Path)
     parser.add_argument("--out", default="output", type=Path)
     args = parser.parse_args()
 
-    exam_dates = _load_exam_dates(args.courses)
+    exam_dates = _load_exam_dates(args.courses, date.today())
     state = run_pipeline(
-        args.data_root, exam_dates, args.pacing_state, args.out,
+        args.data_root, exam_dates, args.pacing_state, args.out, args.cache,
         exams=_load_exams(args.courses),
     )
 
     print(f"Assigned {len(state['assigned_chunks'])} chunks")
     print(f"  concept questions: {len(state['concept_questions'])}")
     print(f"  anki cards: {len(state['anki_cards'])}")
+    print(f"  model calls: {len(state['model_calls'])}")
     for note in state["pacing_notes"]:
         print(f"  - {note}")
     print(f"Packet: {state['packet_path']}")

@@ -258,7 +258,17 @@ resolved in conversation and now the basis for implementation.
   Artifact and records the URL, later runs update by URL.
 - **Deck cadence**: one deck per day containing only that day's cards,
   reusing the fixed model/deck IDs so Anki merges rather than duplicates.
-  Not cumulative — re-importing old notes buys nothing.
+  Not cumulative — re-importing old notes buys nothing. A card is made
+  only when its chunk is new (`new_chunk_ids`): after import, Anki runs
+  its own reviews, so pacing's review passes produce no cards.
+- **Generation cache (request budget)**: free-tier providers cap
+  requests per day, and paying for a chunk on each of its ~5 pacing
+  passes ran out of quota. `graph/cache.py` stores each chunk's
+  question/card in `data/generated.json`, keyed by `chunk_id` plus a hash
+  of the chunk text (edited source means regeneration). Review passes
+  reuse the cache. It's saved after every call and synced with Drive like
+  `pacing_state.json`, but it can also be pushed after a failed run
+  (`drive_sync push --cache-only`), because it never advances pacing.
 - **Explicitly out of scope for cost reasons**: a standalone web app
   with its own login/server/database. The Artifact approach was chosen
   specifically to avoid that additional recurring cost and complexity.

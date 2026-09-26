@@ -5,10 +5,13 @@ import pytest
 from graph.__main__ import _load_exam_dates, _load_exams
 
 
-def _load(tmp_path, text):
+TODAY = date(2026, 9, 24)
+
+
+def _load(tmp_path, text, today=TODAY):
     path = tmp_path / "courses.yaml"
     path.write_text(text)
-    return _load_exam_dates(path)
+    return _load_exam_dates(path, today)
 
 
 def test_unquoted_yaml_date(tmp_path):
@@ -37,6 +40,30 @@ def test_worst_case_used_when_midterm_unconfirmed(tmp_path):
 def test_course_with_no_dates_is_omitted(tmp_path):
     text = "courses:\n  - name: A\n  - name: B\n    midterm_date: 2026-10-15\n"
     assert _load(tmp_path, text) == {"B": date(2026, 10, 15)}
+
+
+FULL = (
+    "courses:\n  - name: A\n    midterm_date: 2026-10-24\n"
+    "    final_date: \"2026-12-11\"\n"
+)
+
+
+def test_midterm_is_target_until_it_passes(tmp_path):
+    assert _load(tmp_path, FULL) == {"A": date(2026, 10, 24)}
+    assert _load(tmp_path, FULL, date(2026, 10, 24)) == {"A": date(2026, 10, 24)}
+
+
+def test_target_rolls_to_final_the_day_after_the_midterm(tmp_path):
+    assert _load(tmp_path, FULL, date(2026, 10, 25)) == {"A": date(2026, 12, 11)}
+
+
+def test_final_only_course_is_paced(tmp_path):
+    text = "courses:\n  - name: A\n    midterm_date: null\n    final_date: 2026-12-11\n"
+    assert _load(tmp_path, text) == {"A": date(2026, 12, 11)}
+
+
+def test_course_with_every_exam_past_is_omitted(tmp_path):
+    assert _load(tmp_path, FULL, date(2026, 12, 12)) == {}
 
 
 @pytest.mark.parametrize("bad", ['"Oct 15"', '"2026/10/15"', "12", "[2026, 10, 15]"])

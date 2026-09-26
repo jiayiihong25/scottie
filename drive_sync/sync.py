@@ -15,7 +15,10 @@ FOLDER_MIME = "application/vnd.google-apps.folder"
 
 # Files the pipeline reads/writes at the Drive folder root.
 COURSES_FILE = "courses.yaml"
-STATE_FILES = ("pacing_state.json", "artifact_url.txt")
+# generated.json is the generation cache (graph/cache.py). Unlike pacing
+# state it's safe to push after a failed run, see push(names=CACHE_FILES).
+CACHE_FILES = ("generated.json",)
+STATE_FILES = ("pacing_state.json", "artifact_url.txt", *CACHE_FILES)
 _ROOT_FILES = (COURSES_FILE, *STATE_FILES)
 
 
@@ -109,8 +112,13 @@ def _pull_folder(
     return count
 
 
-def push(client: DriveClient, folder_id: str, data_root: Path) -> None:
-    """Write state files back to their existing Drive copies.
+def push(
+    client: DriveClient,
+    folder_id: str,
+    data_root: Path,
+    names: tuple[str, ...] = STATE_FILES,
+) -> None:
+    """Write state files (or just `names`) back to their existing Drive copies.
 
     Update-only on purpose: a service account has no storage quota of its
     own, so it can edit files you created but cannot create new ones in a
@@ -118,7 +126,7 @@ def push(client: DriveClient, folder_id: str, data_root: Path) -> None:
     """
     data_root = Path(data_root)
     by_name = {i.name: i for i in client.list_children(folder_id) if not i.is_folder}
-    for name in STATE_FILES:
+    for name in names:
         src = data_root / name
         if not src.exists():
             continue

@@ -19,6 +19,7 @@ JiaYi Courses/
   courses.yaml
   pacing_state.json      (edited in place by push)
   artifact_url.txt       (edited in place by push)
+  generated.json         (edited in place by push; generation cache)
   <course>/<topic>/<source file>
   <course>/<source file>            (topic defaults to "general")
   _anything/                        (folders starting with "_" are skipped)
@@ -36,9 +37,14 @@ reported as warnings. The root `README` is ignored.
 2. **run** — `python -m graph`; require `output/delivery.json`.
 3. **deliver** — publish the Artifact, send the `.apkg` (see the design doc's
    delivery boundary).
-4. **push** — only after delivery succeeded, write `pacing_state.json` and
-   `artifact_url.txt` back. A crash before this leaves state untouched, so
-   pacing can never advance without a delivered packet.
+4. **push** — only after delivery succeeded, write `pacing_state.json`,
+   `artifact_url.txt` and `generated.json` back. A crash before this leaves
+   pacing state untouched, so pacing can never advance without a delivered
+   packet.
+   After a failed run, `push --cache-only` writes back just `generated.json`.
+   The cache is keyed by chunk text and never advances pacing, so saving it
+   is always safe, and requests already spent on free-tier quota aren't
+   wasted.
 
 ## Setup (one time)
 
@@ -46,7 +52,8 @@ reported as warnings. The root `README` is ignored.
   `GOOGLE_SERVICE_ACCOUNT_JSON` (Routine) or `GOOGLE_SERVICE_ACCOUNT_FILE`
   (local `.env`). Never committed.
 - Share the folder with the service account's email as **Editor**.
-- Create `pacing_state.json` (containing `{}`) and an empty `artifact_url.txt`
+- Create `pacing_state.json` and `generated.json` (each containing `{}`) and an
+  empty `artifact_url.txt`
   in the folder by hand: a service account can edit files you own but cannot
   create new ones in a personal Drive, so `push` is update-only.
 

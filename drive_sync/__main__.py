@@ -1,4 +1,8 @@
-"""python -m drive_sync pull|push [--data-root data]
+"""python -m drive_sync pull|push [--cache-only] [--data-root data]
+
+push --cache-only writes back just the generation cache. The Routine runs
+it after a failed run, so model output already paid for isn't regenerated
+tomorrow; it never touches pacing_state.json.
 
 Needs DRIVE_FOLDER_ID and GOOGLE_SERVICE_ACCOUNT_JSON (env vars or .env).
 Exits nonzero with a clear message on any failure.
@@ -14,13 +18,17 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from .client import GoogleDriveClient
-from .sync import print_warnings, pull, push
+from .sync import CACHE_FILES, STATE_FILES, print_warnings, pull, push
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["pull", "push"])
     parser.add_argument("--data-root", default="data", type=Path)
+    parser.add_argument(
+        "--cache-only", action="store_true",
+        help="push only the generation cache (safe after a failed run)",
+    )
     args = parser.parse_args()
 
     load_dotenv()
@@ -35,8 +43,9 @@ def main() -> int:
             print_warnings(pull(client, folder_id, args.data_root))
             print(f"Pulled Drive folder into {args.data_root}")
         else:
-            push(client, folder_id, args.data_root)
-            print("Pushed state back to Drive")
+            names = CACHE_FILES if args.cache_only else STATE_FILES
+            push(client, folder_id, args.data_root, names)
+            print(f"Pushed {', '.join(names)} back to Drive")
     except Exception as exc:  # one loud line for the Routine to report
         print(f"drive_sync {args.command} FAILED: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1

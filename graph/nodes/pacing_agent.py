@@ -28,6 +28,13 @@ from ..state import PipelineState
 # optimization.
 REVIEW_OFFSETS_DAYS = (1, 3, 7, 14)
 
+# New material is introduced within this many days of first appearing (or
+# by the exam, if that's sooner) rather than spread all the way to the
+# exam. Material keeps arriving through the term, so spreading to the exam
+# only sees today's corpus: early weeks run light and each upload gets
+# smeared across months. This keeps study in step with lectures.
+NEW_MATERIAL_WINDOW_DAYS = 7
+
 
 @dataclass
 class ChunkPacingState:
@@ -103,9 +110,10 @@ def pacing_agent(
             continue
 
         days_remaining = max((exam_date - today).days, 1)
+        window_days = min(days_remaining, NEW_MATERIAL_WINDOW_DAYS)
         new_chunks = [c for c in chunks if c.chunk_id not in pacing_state]
-        # Spread remaining new material evenly across remaining days.
-        new_today_budget = math.ceil(len(new_chunks) / days_remaining) if new_chunks else 0
+        # Spread new material evenly across the window.
+        new_today_budget = math.ceil(len(new_chunks) / window_days) if new_chunks else 0
 
         new_today = new_chunks[:new_today_budget]
         for chunk in new_today:
@@ -114,7 +122,7 @@ def pacing_agent(
             new_ids.append(chunk.chunk_id)
             notes.append(
                 f"{course} {chunk.chunk_id}: new — {len(new_chunks)} new chunks left, "
-                f"{days_remaining} days to {exam_date.isoformat()}"
+                f"spread over {window_days} days ({days_remaining} to {exam_date.isoformat()})"
             )
 
         for chunk in chunks:

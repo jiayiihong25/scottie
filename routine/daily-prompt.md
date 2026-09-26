@@ -23,7 +23,8 @@ python -m drive_sync pull
 ```
 
 This fills `data/` with course material, `courses.yaml`, and (after the first
-run) `pacing_state.json` and `artifact_url.txt`. It exits nonzero if Drive is
+run) `pacing_state.json`, `artifact_url.txt` and `generated.json` (the
+generation cache: questions and cards already paid for). It exits nonzero if Drive is
 unreachable, `courses.yaml` is missing, or no course material is found. That
 is a failure: do not run the pipeline against an empty `data/`. Warnings on
 stderr (e.g. a skipped unsupported file) are not failures, but mention them
@@ -53,14 +54,17 @@ packet file and the deck file (or `null` on a day with no cards).
    file with `SendUserFile` (status `proactive`, display `attach`), with the
    Artifact link in the caption. If it is null, say there is no deck today.
 3. Only after both steps succeed, run `python -m drive_sync push` to write
-   the updated `data/pacing_state.json` and `data/artifact_url.txt` back to
-   Drive. Pacing state must never advance unless the packet was delivered.
+   the updated `data/pacing_state.json`, `data/artifact_url.txt` and
+   `data/generated.json` back to Drive. Pacing state must never advance unless the packet was delivered.
    A push failure is a failure: the next run would re-issue today's chunks.
 
 ## Failure
 
-On any failure: do not upload `pacing_state.json`, do not publish anything,
-and send the user a proactive message that starts with "Morning packet FAILED",
+On any failure: do not upload `pacing_state.json` and do not publish anything.
+If `data/generated.json` exists, run `python -m drive_sync push --cache-only`
+so the model output this run already paid for isn't regenerated tomorrow. It
+never touches pacing state. If that push fails too, mention it but keep going.
+Then send the user a proactive message that starts with "Morning packet FAILED",
 names the step that failed, and includes the error output (with secrets
 removed). A visible failure at breakfast is the requirement.
 
@@ -83,7 +87,7 @@ left off. Do not try to backfill.
   `GOOGLE_SERVICE_ACCOUNT_JSON` (the service account key, pasted as one value).
 - **Connectors:** none required. The Drive connector is deliberately not used.
 - **One-time Drive setup:** share the folder with the service account's email
-  as Editor, and create empty `pacing_state.json` (containing `{}`) and
-  `artifact_url.txt` in the folder. A service account can edit files you own
+  as Editor, and create empty `pacing_state.json` and `generated.json` (each
+  containing `{}`) and `artifact_url.txt` in the folder. A service account can edit files you own
   but cannot create new ones in a personal Drive, so `push` needs these to
   exist.
