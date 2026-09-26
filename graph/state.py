@@ -66,6 +66,10 @@ class PipelineState(TypedDict):
     concept_questions: list[ConceptQuestion]
     anki_cards: list[AnkiCardDraft]
 
+    # set by summaries: source_file -> overview, for files with new chunks
+    # today. May be empty (nothing new today, or no summary cached yet).
+    file_summaries: dict[str, str]
+
     # set by packet_writer
     packet_path: Path | None
     apkg_path: Path | None
@@ -88,6 +92,7 @@ def new_state() -> PipelineState:
         exams=[],
         concept_questions=[],
         anki_cards=[],
+        file_summaries={},
         packet_path=None,
         apkg_path=None,
         errors=[],

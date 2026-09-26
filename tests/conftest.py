@@ -51,7 +51,7 @@ def fake_batch_model(monkeypatch):
             items = {
                 i: {k: (v(i) if callable(v) else v) for k, v in fields.items()} for i in ids
             }
-            return json.dumps({"items": items})
+            return json.dumps({"summary": f"Summary of {', '.join(ids)}.", "items": items})
 
         monkeypatch.setattr(batching, "call_model", call_model)
         return prompts

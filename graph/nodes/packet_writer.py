@@ -120,6 +120,10 @@ def _daybook_packet(state: PipelineState, today: date) -> dict:
             }
             for c in state["assigned_chunks"]
         ],
+        "summaries": [
+            {"source_file": Path(source_file).name, "summary": summary}
+            for source_file, summary in state["file_summaries"].items()
+        ],
         "questions": [
             {
                 "course": q.course,
@@ -152,6 +156,13 @@ def _render_packet_html(state: PipelineState, today: date) -> str:
     )
 
     reading_section = f"<ul>{reading_items}</ul>" if reading_items else "<p>Nothing new or due today.</p>"
+    summary_section = "".join(
+        f"<h4>{html.escape(Path(source_file).name)}</h4>"
+        + "".join(f"<p>{html.escape(p)}</p>" for p in summary.split("\n\n"))
+        for source_file, summary in state["file_summaries"].items()
+    )
+    if summary_section:
+        reading_section = f"<h3>New today — what it covers</h3>{summary_section}" + reading_section
     question_section = (
         f"<ul>{question_items}</ul>" if question_items else "<p>No concept questions today.</p>"
     )

@@ -287,6 +287,14 @@ resolved in conversation and now the basis for implementation.
   `lookahead` node (after `card_agent`) spends any leftover requests
   pre-generating upcoming material, nearest exam first. `call_model`
   refuses to exceed the budget as a hard backstop.
+- **Per-file summaries**: each batched request also returns a 2-4
+  sentence `summary` of its excerpts, at no extra request cost. The
+  summary is stored on the batch's cache entries, so it goes stale with
+  them. The `summaries` node collects them for files with new chunks
+  today, and the packet shows them above the reading list (`summaries` in
+  `packet.json`). Questions and cards are still generated from the raw
+  text, never from a summary: under a request limit that would save
+  nothing and lose detail.
 - **Explicitly out of scope for cost reasons**: a standalone web app
   with its own login/server/database. The Artifact approach was chosen
   specifically to avoid that additional recurring cost and complexity.

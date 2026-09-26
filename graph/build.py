@@ -23,6 +23,7 @@ from .nodes.ingest_node import ingest_node
 from .nodes.lookahead import lookahead
 from .nodes.packet_writer import packet_writer
 from .nodes.pacing_agent import pacing_agent
+from .nodes.summaries import summaries
 from .state import PipelineState, new_state
 
 
@@ -47,14 +48,16 @@ def build_graph(
     graph.add_node("concept", lambda s: concept_agent(s, cache_path, today))
     graph.add_node("card", lambda s: card_agent(s, cache_path, today))
     graph.add_node("lookahead", lambda s: lookahead(s, cache_path, request_budget, today))
-    graph.add_node("packet", lambda s: packet_writer(s, output_dir, today))
+    graph.add_node("summaries", lambda s: summaries(s, cache_path))
+    graph.add_node("packet",lambda s: packet_writer(s, output_dir, today))
 
     graph.set_entry_point("ingest")
     graph.add_edge("ingest", "pacing")
     graph.add_edge("pacing", "concept")
     graph.add_edge("concept", "card")
     graph.add_edge("card", "lookahead")
-    graph.add_edge("lookahead", "packet")
+    graph.add_edge("lookahead", "summaries")
+    graph.add_edge("summaries", "packet")
     graph.add_edge("packet", END)
 
     return graph.compile()

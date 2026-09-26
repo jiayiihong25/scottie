@@ -70,7 +70,7 @@ def test_quota_spent_before_a_failure_is_kept(monkeypatch, make_chunk, tmp_path)
         calls.append(1)
         if len(calls) > 1:
             raise RuntimeError("429: quota exhausted")  # the second file's request
-        return json.dumps({"items": {"a.pdf#0": {"question": "Why A?"}}})
+        return json.dumps({"summary": "S", "items": {"a.pdf#0": {"question": "Why A?"}}})
 
     monkeypatch.setattr(batching, "call_model", call_model)
 
