@@ -132,3 +132,14 @@ def test_failed_run_leaves_no_stale_daybook_packet(tmp_path):
         packet_writer(state, tmp_path, TODAY)
 
     assert not (tmp_path / "packet.json").exists()
+
+
+def test_budget_deferral_is_shown_in_both_outputs(tmp_path):
+    state = new_state()
+    state["pacing_warnings"] = ["B: 2 new chunks deferred to tomorrow — over the daily request budget (40)"]
+
+    packet_writer(state, tmp_path, TODAY)
+
+    assert "Behind schedule" in (tmp_path / "morning_packet.html").read_text(encoding="utf-8")
+    packet = json.loads((tmp_path / "packet.json").read_text(encoding="utf-8"))
+    assert packet["warnings"] == state["pacing_warnings"]

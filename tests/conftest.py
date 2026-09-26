@@ -25,3 +25,35 @@ def make_chunk():
         )
 
     return _make
+
+
+@pytest.fixture
+def fake_batch_model(monkeypatch):
+    """Stubs batching.call_model with a model that answers every chunk_id
+    in the prompt. `fields` maps field name -> value (a callable gets the
+    chunk_id). Returns the list of prompts sent, one per request.
+    """
+    import json
+    import re
+
+    from graph.nodes import batching
+    from graph.state import ModelCallLog
+
+    def install(**fields):
+        prompts = []
+
+        def call_model(task_type, messages, state, **kwargs):
+            prompt = messages[0]["content"]
+            prompts.append(prompt)
+            # Log like the real call_model, so budget accounting sees it.
+            state["model_calls"].append(ModelCallLog(task_type, "fake", 0, 0))
+            ids = re.findall(r"^### chunk_id: (\S+)", prompt, flags=re.MULTILINE)
+            items = {
+                i: {k: (v(i) if callable(v) else v) for k, v in fields.items()} for i in ids
+            }
+            return json.dumps({"items": items})
+
+        monkeypatch.setattr(batching, "call_model", call_model)
+        return prompts
+
+    return install

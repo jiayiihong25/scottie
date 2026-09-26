@@ -99,7 +99,7 @@ def _daybook_packet(state: PipelineState, today: date) -> dict:
     chunks_by_id = {c.chunk_id: c for c in state["assigned_chunks"]}
     new_ids = set(state["new_chunk_ids"])
 
-    warnings = list(state["ingest_errors"])
+    warnings = list(state["ingest_errors"]) + list(state["pacing_warnings"])
     warnings += [
         f"{course}: no exam date in courses.yaml, so it isn't in today's prep"
         for course in state["content_index"].courses
@@ -163,6 +163,10 @@ def _render_packet_html(state: PipelineState, today: date) -> str:
         if warnings
         else ""
     )
+
+    if state["pacing_warnings"]:
+        items = "".join(f"<li>{html.escape(w)}</li>" for w in state["pacing_warnings"])
+        banner += f"<div><strong>Behind schedule:</strong><ul>{items}</ul></div>"
 
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Morning Packet</title></head>

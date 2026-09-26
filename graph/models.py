@@ -17,11 +17,23 @@ from .state import ModelCallLog, PipelineState
 _CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "models.yaml"
 
 
-def _load_model_config() -> dict[str, str]:
+def _load_model_config() -> dict:
     return yaml.safe_load(_CONFIG_PATH.read_text())
 
 
 MODEL_CONFIG = _load_model_config()
+
+
+def config_setting(name: str):
+    """A value from config/models.yaml's `budget:` section. Raises if unset.
+
+    There's no silent default, so the knobs that decide daily request usage
+    stay visible in one file.
+    """
+    budget = MODEL_CONFIG.get("budget") or {}
+    if name not in budget:
+        raise ValueError(f"config/models.yaml is missing budget.{name}")
+    return budget[name]
 
 # The OpenAI SDK retries connection errors, timeouts, 408/409/429 and 5xx with
 # exponential backoff, and does not retry other 4xx (an auth error fails the
@@ -73,6 +85,16 @@ def call_model(
     alias = MODEL_CONFIG.get(task_type)
     if alias is None:
         raise ValueError(f"no OmniRoute alias configured for task_type {task_type!r}")
+
+    # Hard ceiling, backstopping pacing's estimate: never spend more than
+    # the day's free-tier quota and then fail halfway on 429s anyway.
+    budget = int(config_setting("daily_request_budget"))
+    if len(state["model_calls"]) >= budget:
+        raise RuntimeError(
+            f"call_model: daily request budget of {budget} already used this run "
+            f"(task_type {task_type!r}) — pacing's estimate was wrong, or "
+            "budget.daily_request_budget in config/models.yaml is too low"
+        )
 
     client = _get_client()
     response = client.chat.completions.create(model=alias, messages=messages, **kwargs)
