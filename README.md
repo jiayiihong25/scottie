@@ -91,6 +91,16 @@ reading list and exam dates; `questions` is `[]` and `deck` is `null`.
 push that file (`python -m drive_sync push`) only after the packet has been
 delivered, and don't run both this and `python -m graph` on the same day.
 
+### Syllabus planner
+
+Both modes also read the optional `data/schedule.yaml` (synced from Drive
+next to `courses.yaml`): each course's syllabus, week by week. The packet's
+`syllabus` field lists this week's items and earlier weeks' items, and
+whether each one's files are in Drive. You tick items off on the Daybook
+page, and the page works out what's behind. It's separate from pacing,
+which plans reading at your own speed. The file format is in
+`graph/syllabus.py`. A broken file is skipped with a warning.
+
 ## Eventual deployment
 
 Once the pipeline runs cleanly end-to-end locally, it gets packaged as a

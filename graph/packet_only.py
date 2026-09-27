@@ -26,6 +26,7 @@ from .nodes.ingest_node import ingest_node
 from .nodes.pacing_agent import pacing_agent
 from .nodes.packet_writer import _DAYBOOK_PACKET_NAME, _MANIFEST_NAME, _daybook_packet
 from .state import PipelineState, new_state
+from .syllabus import load_schedule
 
 READING_ONLY_WARNING = (
     "Concept questions and flashcards not generated yet (reading-only mode)."
@@ -37,11 +38,13 @@ def run_reading_only(
     courses_yaml: Path,
     pacing_state_path: Path,
     today: date | None = None,
+    schedule_path: Path | None = None,
 ) -> tuple[PipelineState, dict]:
     """Returns the pipeline state and the packet dict. Saves pacing state."""
     today = today or date.today()
     state = new_state()
     state["exams"] = _load_exams(courses_yaml)
+    state["schedule"] = load_schedule(schedule_path) if schedule_path else None
     state = ingest_node(state, data_root)
     # request_budget=None: the budget caps model requests, and this run makes none.
     state = pacing_agent(state, _load_exam_dates(courses_yaml, today), pacing_state_path, today)
@@ -66,6 +69,7 @@ def main() -> None:
     parser.add_argument("--data-root", default="data", type=Path)
     parser.add_argument("--courses", default="data/courses.yaml", type=Path)
     parser.add_argument("--pacing-state", default="data/pacing_state.json", type=Path)
+    parser.add_argument("--schedule", default="data/schedule.yaml", type=Path)
     parser.add_argument("--out", default="output", type=Path)
     parser.add_argument(
         "--dry-run", action="store_true",
@@ -78,9 +82,11 @@ def main() -> None:
             scratch = Path(tmp) / "pacing_state.json"
             if args.pacing_state.exists():
                 shutil.copy(args.pacing_state, scratch)
-            state, packet = run_reading_only(args.data_root, args.courses, scratch)
+            state, packet = run_reading_only(args.data_root, args.courses, scratch, schedule_path=args.schedule)
     else:
-        state, packet = run_reading_only(args.data_root, args.courses, args.pacing_state)
+        state, packet = run_reading_only(
+            args.data_root, args.courses, args.pacing_state, schedule_path=args.schedule
+        )
 
     new_ids = set(state["new_chunk_ids"])
     print(f"Assigned {len(state['assigned_chunks'])} chunks ({len(new_ids)} new)")

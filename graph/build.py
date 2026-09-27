@@ -25,6 +25,7 @@ from .nodes.packet_writer import packet_writer
 from .nodes.pacing_agent import pacing_agent
 from .nodes.summaries import summaries
 from .state import PipelineState, new_state
+from .syllabus import Schedule
 
 
 def build_graph(
@@ -71,10 +72,12 @@ def run_pipeline(
     cache_path: Path,
     today: date | None = None,
     exams: list[dict] | None = None,
+    schedule: Schedule | None = None,
 ) -> PipelineState:
     compiled = build_graph(
         data_root, exam_dates, pacing_state_path, output_dir, cache_path, today
     )
     state = new_state()
     state["exams"] = exams or []
+    state["schedule"] = schedule
     return compiled.invoke(state)

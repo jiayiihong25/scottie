@@ -17,6 +17,7 @@ from pathlib import Path
 import genanki
 
 from ..state import PipelineState
+from ..syllabus import syllabus_view
 
 # Stable IDs so re-generating the deck doesn't create a duplicate deck in
 # Anki on import — genanki requires fixed model/deck ids.
@@ -105,6 +106,8 @@ def _daybook_packet(state: PipelineState, today: date) -> dict:
         for course in state["content_index"].courses
         if course not in state["exam_dates"]
     ]
+    if state["schedule"]:
+        warnings += state["schedule"].warnings
 
     return {
         "schema_version": _DAYBOOK_SCHEMA_VERSION,
@@ -138,6 +141,7 @@ def _daybook_packet(state: PipelineState, today: date) -> dict:
             if state["apkg_path"]
             else None
         ),
+        "syllabus": syllabus_view(state["schedule"], state["content_index"], today),
         "warnings": warnings,
     }
 

@@ -17,6 +17,7 @@ from pathlib import Path
 import yaml
 
 from .build import run_pipeline
+from .syllabus import load_schedule
 
 
 def _coerce_date(value: object, course_name: str) -> date:
@@ -89,6 +90,7 @@ def main() -> None:
     parser.add_argument("--data-root", default="data", type=Path)
     parser.add_argument("--courses", default="data/courses.yaml", type=Path)
     parser.add_argument("--pacing-state", default="data/pacing_state.json", type=Path)
+    parser.add_argument("--schedule", default="data/schedule.yaml", type=Path)
     parser.add_argument("--cache", default="data/generated.json", type=Path)
     parser.add_argument("--out", default="output", type=Path)
     args = parser.parse_args()
@@ -96,7 +98,7 @@ def main() -> None:
     exam_dates = _load_exam_dates(args.courses, date.today())
     state = run_pipeline(
         args.data_root, exam_dates, args.pacing_state, args.out, args.cache,
-        exams=_load_exams(args.courses),
+        exams=_load_exams(args.courses), schedule=load_schedule(args.schedule),
     )
 
     print(f"Assigned {len(state['assigned_chunks'])} chunks")
