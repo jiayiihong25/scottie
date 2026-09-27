@@ -78,6 +78,19 @@ Reads `data/courses.yaml` for exam dates and writes the morning packet and
 `.apkg` under `output/`. Model credentials come from the environment or a
 local `.env` (never committed).
 
+### Reading-only mode (no model calls)
+
+```bash
+python -m graph.packet_only --dry-run  # show today's assignment, change nothing
+python -m graph.packet_only            # write output/packet.json for daybook
+```
+
+Runs ingest + pacing only and writes daybook's `packet.json` with the
+reading list and exam dates; `questions` is `[]` and `deck` is `null`.
+**It advances pacing** (`data/pacing_state.json`) just like a full run, so
+push that file (`python -m drive_sync push`) only after the packet has been
+delivered, and don't run both this and `python -m graph` on the same day.
+
 ## Eventual deployment
 
 Once the pipeline runs cleanly end-to-end locally, it gets packaged as a
