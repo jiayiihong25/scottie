@@ -17,6 +17,8 @@ schedule.yaml:
         - week: 1
           starts: 2026-09-08        # a week runs until the next one starts
           label: Week 1             # optional, default "Week <n>"
+        - week: reading-week        # a break: a name instead of a number, no items
+          starts: 2026-10-12
           topic: What is marketing? # optional
           summary: ...              # optional, from the syllabus
           items:
@@ -94,7 +96,9 @@ def _parse(raw: object) -> dict[str, list[ScheduleWeek]]:
     for course, weeks in raw["courses"].items():
         if not isinstance(weeks, list) or not weeks:
             raise ScheduleError(f"{course}: expected a list of weeks")
-        parsed = [_parse_week(course, i, w) for i, w in enumerate(weeks)]
+        parsed: list[ScheduleWeek] = []
+        for i, w in enumerate(weeks):
+            parsed.append(_parse_week(course, i, w, parsed[-1].week if parsed else 1))
         for prev, nxt in zip(parsed, parsed[1:]):
             if nxt.starts <= prev.starts:
                 raise ScheduleError(f"{course}: weeks must be in date order ({nxt.label})")
@@ -103,13 +107,21 @@ def _parse(raw: object) -> dict[str, list[ScheduleWeek]]:
     return courses
 
 
-def _parse_week(course: str, i: int, w: object) -> ScheduleWeek:
+def _parse_week(course: str, i: int, w: object, previous: int) -> ScheduleWeek:
     where = f"{course} week #{i + 1}"
     if not isinstance(w, dict):
         raise ScheduleError(f"{where}: expected a mapping")
     number = w.get("week")
-    if not isinstance(number, int) or isinstance(number, bool) or number < 1:
-        raise ScheduleError(f"{where}: 'week' must be a positive integer")
+    default_label = f"Week {number}"
+    if isinstance(number, str) and number.strip():
+        # A break (reading week, exam week): a name instead of a number. It has
+        # nothing to tick, and keeps the previous week's number.
+        if w.get("items"):
+            raise ScheduleError(f"{where}: a week named {number!r} can't have items; number it")
+        default_label = number.replace("-", " ").title()
+        number = previous
+    elif not isinstance(number, int) or isinstance(number, bool) or number < 1:
+        raise ScheduleError(f"{where}: 'week' must be a positive integer, or a name like reading-week")
     starts = _date(w.get("starts"), where)
     items = []
     for j, it in enumerate(w.get("items") or []):
@@ -125,7 +137,7 @@ def _parse_week(course: str, i: int, w: object) -> ScheduleWeek:
         week=number,
         starts=starts,
         ends=starts + timedelta(days=6),  # the last week; others end where the next starts
-        label=str(w.get("label") or f"Week {number}"),
+        label=str(w.get("label") or default_label),
         topic=str(w.get("topic") or ""),
         summary=str(w.get("summary") or "").strip(),
         items=items,

@@ -112,3 +112,19 @@ def test_packet_carries_syllabus_and_schedule_warnings(tmp_path, fixtures_dir):
     _, packet = run_reading_only(data, courses, tmp_path / "p2.json", date(2026, 9, 28), schedule)
     assert packet["syllabus"] == []
     assert any("schedule.yaml ignored" in w for w in packet["warnings"])
+
+
+def test_named_break_weeks(tmp_path, make_chunk):
+    text = SCHEDULE.replace("""    - week: 3
+      starts: 2026-09-28""", """    - week: reading-week
+      starts: 2026-09-21
+      items: []
+    - week: 3
+      starts: 2026-09-28""")
+    schedule = _schedule(tmp_path, text)
+    [view] = syllabus_view(schedule, _index(make_chunk), date(2026, 9, 22))
+    assert (view["week"], view["label"], view["items"]) == (2, "Reading Week", [])
+    assert [e["week"] for e in view["earlier"]] == [1, 1, 2, 2, 2]
+
+    bad = text.replace("starts: 2026-09-21\n      items: []", "starts: 2026-09-21\n      items: [Read]")
+    assert "can't have items" in _schedule(tmp_path, bad).warnings[0]
