@@ -16,6 +16,8 @@ from pathlib import Path
 
 import genanki
 
+from ingest.pipeline import GENERAL_TOPIC
+
 from ..state import PipelineState
 from ..syllabus import syllabus_view
 
@@ -116,7 +118,9 @@ def _daybook_packet(state: PipelineState, today: date) -> dict:
         "reading": [
             {
                 "course": c.course,
-                "topic": c.topic,
+                # Daybook shows topic as the item's title. Flat course folders
+                # all have the default topic, so the file name says more.
+                "topic": Path(c.source_file).stem if c.topic == GENERAL_TOPIC else c.topic,
                 "source_file": Path(c.source_file).name,
                 "unit_range": c.unit_range,
                 "kind": "new" if c.chunk_id in new_ids else "review",

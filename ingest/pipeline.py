@@ -21,6 +21,9 @@ from .chunk import DEFAULT_TARGET_WORDS, chunk_document
 from .errors import IngestError
 from .models import ContentIndex
 
+# Topic of a file directly under its course folder (no topic subfolder).
+GENERAL_TOPIC = "general"
+
 
 def _iter_source_files(root: Path):
     """Yield (course, topic, file_path) for every supported file under root.
@@ -36,7 +39,7 @@ def _iter_source_files(root: Path):
             if entry.suffix.lower() not in extractors.supported_extensions():
                 continue
             rel_parts = entry.relative_to(course_dir).parts
-            topic = rel_parts[0] if len(rel_parts) > 1 else "general"
+            topic = rel_parts[0] if len(rel_parts) > 1 else GENERAL_TOPIC
             yield course, topic, entry
 
 

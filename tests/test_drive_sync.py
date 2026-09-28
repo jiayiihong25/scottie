@@ -97,6 +97,28 @@ def test_duplicate_names_are_both_kept(tmp_path):
     assert sorted(p.name for p in (tmp_path / "C").iterdir()) == ["a (bbbbbb).txt", "a.txt"]
 
 
+def test_repeat_pull_mirrors_drive_instead_of_piling_up(tmp_path):
+    (tmp_path / "PHIL").mkdir()
+    (tmp_path / "PHIL" / "old_syllabus.pdf").write_bytes(b"moved to _ in Drive")
+    (tmp_path / "GONE").mkdir()  # a course folder no longer in Drive
+    (tmp_path / "pacing_state.json").write_text("{}")
+
+    pull(_drive(), "root", tmp_path)
+    pull(_drive(), "root", tmp_path)
+
+    assert sorted(p.name for p in (tmp_path / "PHIL").iterdir()) == ["lec1.pdf", "week 2"]
+    assert not (tmp_path / "GONE").exists()
+    assert (tmp_path / "pacing_state.json").read_text() == "{}"  # root files kept
+
+
+def test_failed_pull_keeps_local_courses(tmp_path):
+    (tmp_path / "PHIL").mkdir()
+    (tmp_path / "PHIL" / "lec1.pdf").write_bytes(b"a")
+    with pytest.raises(DriveSyncError):
+        pull(FakeDrive({"root": []}, {}), "root", tmp_path)
+    assert (tmp_path / "PHIL" / "lec1.pdf").exists()
+
+
 def test_push_updates_existing_state_files_only(tmp_path):
     (tmp_path / "pacing_state.json").write_text("{}")
     drive = _drive([_f("sp", "pacing_state.json"), _f("au", "artifact_url.txt")])
