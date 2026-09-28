@@ -1,3 +1,4 @@
+import dataclasses
 import json
 from datetime import date
 
@@ -112,6 +113,17 @@ def test_daybook_packet_follows_the_contract(tmp_path, make_chunk):
     assert packet["deck"] == {"new_cards": 1, "file": "morning_deck.apkg"}
     # Course D has material but no exam date, so it's silently unpaced otherwise.
     assert packet["warnings"] == ["D: no exam date in courses.yaml, so it isn't in today's prep"]
+
+
+def test_default_topic_is_titled_by_file_name(tmp_path, make_chunk):
+    state = new_state()
+    flat = dataclasses.replace(make_chunk("Grewal Ch01.pdf", 0), topic="general")
+    state["assigned_chunks"] = [flat, make_chunk("week2/b.pdf", 0)]
+
+    packet_writer(state, tmp_path, TODAY)
+
+    packet = json.loads((tmp_path / "packet.json").read_text(encoding="utf-8"))
+    assert [r["topic"] for r in packet["reading"]] == ["Grewal Ch01", "t"]
 
 
 def test_empty_day_daybook_packet_has_every_key(tmp_path):

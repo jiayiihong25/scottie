@@ -4,6 +4,7 @@ tested without Google. The real client is in client.py.
 
 from __future__ import annotations
 
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -64,6 +65,11 @@ def pull(client: DriveClient, folder_id: str, data_root: Path) -> list[str]:
     Raises DriveSyncError if the folder has no courses.yaml or no course
     material — proceeding on an empty data/ would yield a cheerful
     "nothing due today" packet, the silent failure CLAUDE.md forbids.
+
+    Course folders are a mirror of Drive: every subfolder of data_root is
+    replaced, so repeated pulls into the same data/ neither duplicate files
+    nor keep ones that were moved or deleted in Drive. Root files (state,
+    cache) are overwritten, never deleted.
     """
     data_root = Path(data_root)
     data_root.mkdir(parents=True, exist_ok=True)
@@ -75,6 +81,10 @@ def pull(client: DriveClient, folder_id: str, data_root: Path) -> list[str]:
 
     if COURSES_FILE not in by_name:
         raise DriveSyncError(f"{COURSES_FILE} not found in Drive folder {folder_id}")
+    # Only after Drive answered with a real course folder, so an unreachable
+    # Drive never empties the local copy.
+    for stale in (p for p in data_root.iterdir() if p.is_dir()):
+        shutil.rmtree(stale)
     for name in _ROOT_FILES:
         item = by_name.get(name)
         if item is not None:
