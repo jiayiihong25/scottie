@@ -15,6 +15,8 @@ from typing import TypedDict
 
 from ingest.models import Chunk, ContentIndex
 
+from .syllabus import Schedule
+
 
 @dataclass
 class ConceptQuestion:
@@ -62,6 +64,10 @@ class PipelineState(TypedDict):
     # before the graph runs, from courses.yaml
     exams: list[dict]
 
+    # the syllabus schedule (data/schedule.yaml); set before the graph runs.
+    # None or empty means no schedule yet.
+    schedule: Schedule | None
+
     # set by concept_agent / card_agent — both optional, may be empty
     concept_questions: list[ConceptQuestion]
     anki_cards: list[AnkiCardDraft]
@@ -90,6 +96,7 @@ def new_state() -> PipelineState:
         pacing_notes=[],
         pacing_warnings=[],
         exams=[],
+        schedule=None,
         concept_questions=[],
         anki_cards=[],
         file_summaries={},

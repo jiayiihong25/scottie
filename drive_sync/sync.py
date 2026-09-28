@@ -15,11 +15,13 @@ FOLDER_MIME = "application/vnd.google-apps.folder"
 
 # Files the pipeline reads/writes at the Drive folder root.
 COURSES_FILE = "courses.yaml"
+# Optional, hand-edited like courses.yaml: the syllabus planner's week plan.
+SCHEDULE_FILE = "schedule.yaml"
 # generated.json is the generation cache (graph/cache.py). Unlike pacing
 # state it's safe to push after a failed run, see push(names=CACHE_FILES).
 CACHE_FILES = ("generated.json",)
 STATE_FILES = ("pacing_state.json", "artifact_url.txt", *CACHE_FILES)
-_ROOT_FILES = (COURSES_FILE, *STATE_FILES)
+_ROOT_FILES = (COURSES_FILE, SCHEDULE_FILE, *STATE_FILES)
 
 
 class DriveSyncError(RuntimeError):

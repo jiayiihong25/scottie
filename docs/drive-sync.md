@@ -17,6 +17,7 @@ Rooted at the "JiaYi Courses" folder (`DRIVE_FOLDER_ID`):
 ```
 JiaYi Courses/
   courses.yaml
+  schedule.yaml          (optional; syllabus planner, pulled only)
   pacing_state.json      (edited in place by push)
   artifact_url.txt       (edited in place by push)
   generated.json         (edited in place by push; generation cache)
