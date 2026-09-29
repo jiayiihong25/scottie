@@ -18,6 +18,7 @@ import genanki
 
 from ingest.pipeline import GENERAL_TOPIC
 
+from ..knowledge import KNOWLEDGE_NAME, write_knowledge
 from ..state import PipelineState
 from ..syllabus import syllabus_view
 
@@ -63,6 +64,7 @@ def packet_writer(
     # Drop any manifest left by an earlier run so a stale one is never delivered.
     manifest_path.unlink(missing_ok=True)
     daybook_path.unlink(missing_ok=True)
+    (output_dir / KNOWLEDGE_NAME).unlink(missing_ok=True)
 
     if state["errors"]:
         # Fail loudly per CLAUDE.md — an incomplete run must not produce a
@@ -86,6 +88,7 @@ def packet_writer(
         json.dumps(_daybook_packet(state, today), indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+    write_knowledge(state["content_index"], output_dir, today)
 
     manifest = {
         "date": today.isoformat(),

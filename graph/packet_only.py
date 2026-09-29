@@ -1,7 +1,7 @@
 """Reading-only run: python -m graph.packet_only [--data-root data] [--out output]
 
-Writes daybook's packet.json (scottie-display/docs/scottie-contract.md)
-from ingest + pacing alone. No model calls, so no OmniRoute: questions
+Writes daybook's packet.json and knowledge.json
+(scottie-display/docs/scottie-contract.md) from ingest + pacing alone. No model calls, so no OmniRoute: questions
 are [] and deck is null. Stopgap until the full pipeline (python -m graph)
 runs daily.
 
@@ -22,6 +22,7 @@ from datetime import date
 from pathlib import Path
 
 from .__main__ import _load_exam_dates, _load_exams
+from .knowledge import write_knowledge
 from .nodes.ingest_node import ingest_node
 from .nodes.pacing_agent import pacing_agent
 from .nodes.packet_writer import _DAYBOOK_PACKET_NAME, _MANIFEST_NAME, _daybook_packet
@@ -100,6 +101,7 @@ def main() -> None:
         print("Dry run: pacing state not saved, packet.json not written")
     else:
         print(f"Packet: {write_packet(packet, args.out)}")
+        print(f"Knowledge: {write_knowledge(state['content_index'], args.out, date.fromisoformat(packet['date']))}")
         print(f"Pacing advanced in {args.pacing_state} (push it after delivering)")
 
 
