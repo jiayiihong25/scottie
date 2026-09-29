@@ -75,7 +75,9 @@ python -m graph                        # needs OMNIROUTE_BASE_URL / OMNIROUTE_AP
 ```
 
 Reads `data/courses.yaml` for exam dates and writes the morning packet and
-`.apkg` under `output/`. Model credentials come from the environment or a
+`.apkg` under `output/`, plus `output/knowledge.json`: every ingested chunk as
+plain text, which the Daybook page's Ask panel searches when you ask a
+question about your courses (schema in `scottie-display/docs/scottie-contract.md`). Model credentials come from the environment or a
 local `.env` (never committed).
 
 ### Reading-only mode (no model calls)
@@ -85,7 +87,8 @@ python -m graph.packet_only --dry-run  # show today's assignment, change nothing
 python -m graph.packet_only            # write output/packet.json for daybook
 ```
 
-Runs ingest + pacing only and writes daybook's `packet.json` with the
+Runs ingest + pacing only and writes daybook's `packet.json` (and
+`knowledge.json`) with the
 reading list and exam dates; `questions` is `[]` and `deck` is `null`.
 **It advances pacing** (`data/pacing_state.json`) just like a full run, so
 push that file (`python -m drive_sync push`) only after the packet has been
