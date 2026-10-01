@@ -16,3 +16,8 @@ python-dotenv
 # Drive sync (Routine)
 google-api-python-client
 google-auth
+# The Routine container's system cryptography (Debian's, in
+# /usr/lib/python3/dist-packages) is missing _cffi_backend and panics when
+# google-auth imports it. A floor above the Debian version makes pip install
+# a working wheel into /usr/local, which takes precedence.
+cryptography>=42
