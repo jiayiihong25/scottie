@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from drive_sync.sync import CACHE_FILES, FOLDER_MIME, DriveItem, DriveSyncError, pull, push
+from drive_sync.sync import CACHE_FILES, FOLDER_MIME, SNAPSHOT_FILES, STATE_FILES, DriveItem, DriveSyncError, pull, push
 
 
 class FakeDrive:
@@ -43,7 +43,7 @@ def _drive(root_extra=()):
         "t1": [_f("b", "lec2.txt")],
         "intake": [_f("s", "syllabus.pdf", "application/pdf")],
     }
-    blobs = {k: k.encode() for k in ("y", "a", "b", "s", "sp", "au", "gc")}
+    blobs = {k: k.encode() for k in ("y", "a", "b", "s", "sp", "au", "gc", "ds")}
     return FakeDrive(tree, blobs)
 
 
@@ -151,3 +151,33 @@ def test_full_push_includes_the_cache(tmp_path):
     push(drive, "root", tmp_path)
 
     assert drive.updated == {"gc": b"{}"}
+
+
+def test_pull_restores_the_daybook_snapshot(tmp_path):
+    pull(_drive([_f("ds", "daybook_snapshot.json")]), "root", tmp_path)
+    assert (tmp_path / "daybook_snapshot.json").read_bytes() == b"ds"
+
+
+def test_snapshot_only_push_leaves_pacing_and_cache_alone(tmp_path):
+    (tmp_path / "pacing_state.json").write_text("{}")
+    (tmp_path / "generated.json").write_text("{}")
+    (tmp_path / "daybook_snapshot.json").write_text('{"sources": {}}')
+    drive = _drive([_f("sp", "pacing_state.json"), _f("gc", "generated.json"), _f("ds", "daybook_snapshot.json")])
+
+    push(drive, "root", tmp_path, SNAPSHOT_FILES)
+
+    assert drive.updated == {"ds": b'{"sources": {}}'}
+
+
+def test_a_normal_push_never_writes_the_snapshot(tmp_path):
+    (tmp_path / "daybook_snapshot.json").write_text("{}")
+    assert "daybook_snapshot.json" not in STATE_FILES
+    drive = _drive([_f("ds", "daybook_snapshot.json")])
+    push(drive, "root", tmp_path)  # no placeholder error, nothing written
+    assert drive.updated == {}
+
+
+def test_snapshot_push_without_placeholder_names_the_file(tmp_path):
+    (tmp_path / "daybook_snapshot.json").write_text("{}")
+    with pytest.raises(DriveSyncError, match="daybook_snapshot.json does not exist"):
+        push(_drive(), "root", tmp_path, SNAPSHOT_FILES)

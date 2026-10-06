@@ -21,6 +21,7 @@ JiaYi Courses/
   pacing_state.json      (edited in place by push)
   artifact_url.txt       (edited in place by push)
   generated.json         (edited in place by push; generation cache)
+  daybook_snapshot.json  (edited in place by push --snapshot-only; daybook's last good page data)
   <course>/<topic>/<source file>
   <course>/<source file>            (topic defaults to "general")
   _anything/                        (folders starting with "_" are skipped)
@@ -46,6 +47,11 @@ reported as warnings. The root `README` is ignored.
    The cache is keyed by chunk text and never advances pacing, so saving it
    is always safe, and requests already spent on free-tier quota aren't
    wasted.
+   `push --snapshot-only` writes back just `daybook_snapshot.json`: daybook's
+   last good `output/snapshot.json`, which the Routine copies in before the
+   build and out again after publishing, so a section whose source didn't
+   deliver can carry over yesterday's. It never touches pacing state, and it
+   is saved whether or not scottie succeeded.
 
 ## Setup (one time)
 
@@ -53,8 +59,8 @@ reported as warnings. The root `README` is ignored.
   `GOOGLE_SERVICE_ACCOUNT_JSON` (Routine) or `GOOGLE_SERVICE_ACCOUNT_FILE`
   (local `.env`). Never committed.
 - Share the folder with the service account's email as **Editor**.
-- Create `pacing_state.json` and `generated.json` (each containing `{}`) and an
-  empty `artifact_url.txt`
+- Create `pacing_state.json`, `generated.json` and `daybook_snapshot.json`
+  (each containing `{}`) and an empty `artifact_url.txt`
   in the folder by hand: a service account can edit files you own but cannot
   create new ones in a personal Drive, so `push` is update-only.
 
