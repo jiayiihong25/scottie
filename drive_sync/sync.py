@@ -22,7 +22,13 @@ SCHEDULE_FILE = "schedule.yaml"
 # state it's safe to push after a failed run, see push(names=CACHE_FILES).
 CACHE_FILES = ("generated.json",)
 STATE_FILES = ("pacing_state.json", "artifact_url.txt", *CACHE_FILES)
-_ROOT_FILES = (COURSES_FILE, SCHEDULE_FILE, *STATE_FILES)
+# daybook's last good snapshot (scottie-display/output/snapshot.json), kept
+# here so a fresh Routine container can carry yesterday's sections over when
+# a source doesn't deliver. Pulled with everything else, but pushed on its own
+# (push --snapshot-only): it must save even on days scottie fails, and it has
+# nothing to do with pacing, so it is not part of STATE_FILES.
+SNAPSHOT_FILES = ("daybook_snapshot.json",)
+_ROOT_FILES = (COURSES_FILE, SCHEDULE_FILE, *STATE_FILES, *SNAPSHOT_FILES)
 
 
 class DriveSyncError(RuntimeError):
