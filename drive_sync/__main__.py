@@ -8,6 +8,11 @@ push --snapshot-only writes back just daybook's last good snapshot
 (daybook_snapshot.json), so tomorrow's page can carry over a section whose
 source didn't deliver. Also never touches pacing_state.json.
 
+push --relearn-only writes back just relearn.json (the Daybook's open
+"to relearn" flags, exported by the Routine), and push --tutor-only just
+tutor_status.json (the study tutor's review state, pushed from the laptop).
+Neither touches pacing_state.json.
+
 Needs DRIVE_FOLDER_ID and GOOGLE_SERVICE_ACCOUNT_JSON (env vars or .env).
 Exits nonzero with a clear message on any failure.
 """
@@ -22,24 +27,48 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from .client import GoogleDriveClient
-from .sync import CACHE_FILES, SNAPSHOT_FILES, STATE_FILES, print_warnings, pull, push
+from .sync import (
+    CACHE_FILES,
+    RELEARN_FILES,
+    SNAPSHOT_FILES,
+    STATE_FILES,
+    TUTOR_FILES,
+    print_warnings,
+    pull,
+    push,
+)
+
+# push --<flag>: the files that push writes instead of STATE_FILES.
+ONLY_FLAGS = {
+    "cache_only": CACHE_FILES,
+    "snapshot_only": SNAPSHOT_FILES,
+    "relearn_only": RELEARN_FILES,
+    "tutor_only": TUTOR_FILES,
+}
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=["pull", "push"])
     parser.add_argument("--data-root", default="data", type=Path)
-    parser.add_argument(
+    only = parser.add_mutually_exclusive_group()
+    only.add_argument(
         "--cache-only", action="store_true",
         help="push only the generation cache (safe after a failed run)",
     )
-    parser.add_argument(
+    only.add_argument(
         "--snapshot-only", action="store_true",
         help="push only daybook's snapshot (safe whether or not scottie succeeded)",
     )
+    only.add_argument(
+        "--relearn-only", action="store_true",
+        help="push only relearn.json, the Daybook's open relearn flags (never touches pacing)",
+    )
+    only.add_argument(
+        "--tutor-only", action="store_true",
+        help="push only tutor_status.json, the study tutor's review state (never touches pacing)",
+    )
     args = parser.parse_args()
-    if args.cache_only and args.snapshot_only:
-        parser.error("--cache-only and --snapshot-only are separate pushes; use one")
 
     load_dotenv()
     folder_id = os.environ.get("DRIVE_FOLDER_ID")
@@ -53,7 +82,7 @@ def main() -> int:
             print_warnings(pull(client, folder_id, args.data_root))
             print(f"Pulled Drive folder into {args.data_root}")
         else:
-            names = SNAPSHOT_FILES if args.snapshot_only else CACHE_FILES if args.cache_only else STATE_FILES
+            names = next((files for flag, files in ONLY_FLAGS.items() if getattr(args, flag)), STATE_FILES)
             push(client, folder_id, args.data_root, names)
             print(f"Pushed {', '.join(names)} back to Drive")
     except Exception as exc:  # one loud line for the Routine to report
