@@ -22,6 +22,8 @@ JiaYi Courses/
   artifact_url.txt       (edited in place by push)
   generated.json         (edited in place by push; generation cache)
   daybook_snapshot.json  (edited in place by push --snapshot-only; daybook's last good page data)
+  relearn.json           (edited in place by push --relearn-only; the Daybook's open "to relearn" flags)
+  tutor_status.json      (edited in place by push --tutor-only; the study tutor's review state)
   <course>/<topic>/<source file>
   <course>/<source file>            (topic defaults to "general")
   _anything/                        (folders starting with "_" are skipped)
@@ -52,6 +54,14 @@ reported as warnings. The root `README` is ignored.
    build and out again after publishing, so a section whose source didn't
    deliver can carry over yesterday's. It never touches pacing state, and it
    is saved whether or not scottie succeeded.
+   `push --relearn-only` and `push --tutor-only` are the two halves of the
+   study-tutor sync (jiayiihong25/learn, which runs on the laptop). The daily
+   Routine exports the Daybook page's open "to relearn" flags into
+   `relearn.json` and pushes it, and the tutor picks them up on its next sync.
+   The tutor pushes `tutor_status.json` (its spaced-review items per course)
+   from the laptop, and the next morning's pull brings it down for the
+   Daybook's Review panel. Both are pulled with everything else and neither
+   touches pacing state. Schemas: `scottie-display/docs/tutor-sync.md`.
 
 ## Setup (one time)
 
@@ -59,8 +69,8 @@ reported as warnings. The root `README` is ignored.
   `GOOGLE_SERVICE_ACCOUNT_JSON` (Routine) or `GOOGLE_SERVICE_ACCOUNT_FILE`
   (local `.env`). Never committed.
 - Share the folder with the service account's email as **Editor**.
-- Create `pacing_state.json`, `generated.json` and `daybook_snapshot.json`
-  (each containing `{}`) and an empty `artifact_url.txt`
+- Create `pacing_state.json`, `generated.json`, `daybook_snapshot.json`,
+  `relearn.json` and `tutor_status.json` (each containing `{}`) and an empty `artifact_url.txt`
   in the folder by hand: a service account can edit files you own but cannot
   create new ones in a personal Drive, so `push` is update-only.
 

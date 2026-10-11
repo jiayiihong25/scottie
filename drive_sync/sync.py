@@ -28,7 +28,15 @@ STATE_FILES = ("pacing_state.json", "artifact_url.txt", *CACHE_FILES)
 # (push --snapshot-only): it must save even on days scottie fails, and it has
 # nothing to do with pacing, so it is not part of STATE_FILES.
 SNAPSHOT_FILES = ("daybook_snapshot.json",)
-_ROOT_FILES = (COURSES_FILE, SCHEDULE_FILE, *STATE_FILES, *SNAPSHOT_FILES)
+# The two halves of the study-tutor sync (jiayiihong25/learn), each pushed on
+# its own and neither touching pacing:
+# - relearn.json: the Daybook page's open "to relearn" flags, exported by the
+#   daily Routine (push --relearn-only) for the tutor to pick up.
+# - tutor_status.json: the tutor's spaced-review state, pushed from the laptop
+#   (push --tutor-only) for the Daybook's Review panel.
+RELEARN_FILES = ("relearn.json",)
+TUTOR_FILES = ("tutor_status.json",)
+_ROOT_FILES = (COURSES_FILE, SCHEDULE_FILE, *STATE_FILES, *SNAPSHOT_FILES, *RELEARN_FILES, *TUTOR_FILES)
 
 
 class DriveSyncError(RuntimeError):

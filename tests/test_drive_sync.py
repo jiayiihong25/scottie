@@ -2,7 +2,18 @@ from pathlib import Path
 
 import pytest
 
-from drive_sync.sync import CACHE_FILES, FOLDER_MIME, SNAPSHOT_FILES, STATE_FILES, DriveItem, DriveSyncError, pull, push
+from drive_sync.sync import (
+    CACHE_FILES,
+    FOLDER_MIME,
+    RELEARN_FILES,
+    SNAPSHOT_FILES,
+    STATE_FILES,
+    TUTOR_FILES,
+    DriveItem,
+    DriveSyncError,
+    pull,
+    push,
+)
 
 
 class FakeDrive:
@@ -181,3 +192,31 @@ def test_snapshot_push_without_placeholder_names_the_file(tmp_path):
     (tmp_path / "daybook_snapshot.json").write_text("{}")
     with pytest.raises(DriveSyncError, match="daybook_snapshot.json does not exist"):
         push(_drive(), "root", tmp_path, SNAPSHOT_FILES)
+
+
+@pytest.mark.parametrize("names", [RELEARN_FILES, TUTOR_FILES])
+def test_tutor_sync_pushes_only_their_own_file(tmp_path, names):
+    for name in ("pacing_state.json", "generated.json", "daybook_snapshot.json", *RELEARN_FILES, *TUTOR_FILES):
+        (tmp_path / name).write_text(name)
+    drive = _drive([
+        _f("sp", "pacing_state.json"), _f("gc", "generated.json"), _f("ds", "daybook_snapshot.json"),
+        _f("rl", "relearn.json"), _f("ts", "tutor_status.json"),
+    ])
+
+    push(drive, "root", tmp_path, names)
+
+    assert drive.updated == {{"relearn.json": "rl", "tutor_status.json": "ts"}[names[0]]: names[0].encode()}
+
+
+def test_pull_brings_down_the_tutor_sync_files(tmp_path):
+    drive = _drive([_f("rl", "relearn.json"), _f("ts", "tutor_status.json")])
+    drive.blobs.update({"rl": b"rl", "ts": b"ts"})
+    pull(drive, "root", tmp_path)
+    assert (tmp_path / "relearn.json").read_bytes() == b"rl"
+    assert (tmp_path / "tutor_status.json").read_bytes() == b"ts"
+
+
+def test_a_normal_push_never_writes_the_tutor_sync_files(tmp_path):
+    for name in (*RELEARN_FILES, *TUTOR_FILES):
+        (tmp_path / name).write_text("{}")
+    push(_drive(), "root", tmp_path)  # no placeholder error: not part of STATE_FILES
